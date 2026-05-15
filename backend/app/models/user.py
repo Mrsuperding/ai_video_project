@@ -13,7 +13,7 @@ class User(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     phone = Column(String(20), unique=True, nullable=True, comment="手机号")
     email = Column(String(100), unique=True, nullable=True, comment="邮箱")
-    password_hash = Column(String(255), nullable=False, comment="密码哈希")
+    password_hash = Column(String(255), nullable=True, comment="密码哈希（手机注册用户可为空）")
     nickname = Column(String(50), nullable=False, comment="昵称")
     avatar_url = Column(String(500), nullable=True, comment="头像URL")
     bio = Column(Text, nullable=True, comment="个人简介")

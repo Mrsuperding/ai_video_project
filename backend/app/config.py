@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     QINIU_BUCKET: str = ""
     QINIU_CDN_DOMAIN: str = ""
 
+    # 阿里云 OSS 配置
+    ALIYUN_ACCESS_KEY: str = ""
+    ALIYUN_SECRET_KEY: str = ""
+    ALIYUN_BUCKET: str = ""
+    ALIYUN_REGION: str = "oss-cn-hangzhou"
+    ALIYUN_CDN_DOMAIN: str = ""
+
     # 短信配置
     ALIYUN_ACCESS_KEY: str = ""
     ALIYUN_SECRET_KEY: str = ""

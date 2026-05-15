@@ -83,23 +83,23 @@ class Request {
   }
 
   public get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return this.instance.get(url, config).then((res) => res.data.data)
+    return this.instance.get(url, config).then((res) => res.data)
   }
 
   public post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    return this.instance.post(url, data, config).then((res) => res.data.data)
+    return this.instance.post(url, data, config).then((res) => res.data)
   }
 
   public put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    return this.instance.put(url, data, config).then((res) => res.data.data)
+    return this.instance.put(url, data, config).then((res) => res.data)
   }
 
   public patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    return this.instance.patch(url, data, config).then((res) => res.data.data)
+    return this.instance.patch(url, data, config).then((res) => res.data)
   }
 
   public delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return this.instance.delete(url, config).then((res) => res.data.data)
+    return this.instance.delete(url, config).then((res) => res.data)
   }
 }
 

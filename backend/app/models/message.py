@@ -1,9 +1,41 @@
 """
 消息相关模型
 """
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Text, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Text, Index, Float, JSON
 from sqlalchemy.sql import func
 from app.database import Base
+
+
+class ContentReview(Base):
+    """内容审核记录表"""
+    __tablename__ = "content_reviews"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, nullable=False, comment="用户ID")
+
+    target_type = Column(Enum("digital_human", "video", "script", "image"), nullable=False, comment="审核对象类型")
+    target_id = Column(BigInteger, nullable=False, comment="审核对象ID")
+
+    review_type = Column(Enum("auto", "manual"), nullable=False, default="auto", comment="审核类型")
+
+    risk_score = Column(Float, nullable=True, comment="风险分数 0-1")
+    risk_labels = Column(JSON, nullable=True, comment="风险标签列表")
+
+    submit_data = Column(JSON, nullable=True, comment="提交的原始数据")
+
+    result = Column(Enum("pending", "approved", "rejected"), nullable=False, default="pending", comment="审核结果")
+    reviewer_id = Column(BigInteger, nullable=True, comment="审核员ID")
+    review_comment = Column(String(500), nullable=True, comment="审核备注")
+
+    created_at = Column(DateTime, server_default=func.now())
+    reviewed_at = Column(DateTime, nullable=True, comment="审核时间")
+
+    __table_args__ = (
+        Index("idx_user_id", "user_id"),
+        Index("idx_target", "target_type", "target_id"),
+        Index("idx_result", "result"),
+        Index("idx_created_at", "created_at"),
+    )
 
 
 class UserMessage(Base):

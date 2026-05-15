@@ -105,8 +105,14 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/admin/login',
+    name: 'AdminLogin',
+    component: () => import('@/pages/admin/Login.vue')
+  },
+  {
     path: '/admin',
     component: () => import('@/layouts/AdminLayout.vue'),
+    meta: { requiresAdmin: true },
     children: [
       {
         path: '',
@@ -143,6 +149,21 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
+  // Admin routes require admin_token
+  if (to.path.startsWith('/admin')) {
+    const adminToken = localStorage.getItem('admin_token')
+    if (!adminToken) {
+      // Check if it's the admin login page
+      if (to.path === '/admin/login') {
+        next()
+      } else {
+        next('/admin/login')
+      }
+      return
+    }
+  }
+
+  // User routes require token
   const token = localStorage.getItem('token')
   if (!token && !to.path.startsWith('/auth')) {
     next('/auth/login')

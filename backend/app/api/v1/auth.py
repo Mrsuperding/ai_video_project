@@ -1,7 +1,7 @@
 """
 认证 API
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
 
@@ -13,6 +13,7 @@ from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 from app.core.security import create_tokens
 from app.core.exceptions import ValidationException, UnauthorizedException
+from app.core.limiter import check_rate_limit, sms_limiter, login_limiter
 
 router = APIRouter()
 
@@ -20,13 +21,18 @@ router = APIRouter()
 @router.post("/sms/send")
 async def send_sms_code(
     request: SendSmsCodeRequest,
+    http_request: Request,
     db: Session = Depends(get_db)
 ):
     """发送短信验证码"""
+    # 限流：每手机号每5分钟1次
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    await check_rate_limit(sms_limiter, request.phone)
+
     result = AuthService.send_sms_code(
         phone=request.phone,
         code_type=request.code_type,
-        ip_address=request.ip_address,
+        ip_address=client_ip,
         device_id=request.device_id
     )
     return success_response(result)
@@ -35,9 +41,14 @@ async def send_sms_code(
 @router.post("/login/sms")
 async def sms_login(
     request: SmsLoginRequest,
+    http_request: Request,
     db: Session = Depends(get_db)
 ):
     """手机号验证码登录/注册"""
+    # 限流：每IP每分钟3次
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    await check_rate_limit(login_limiter, client_ip)
+
     try:
         user, tokens, is_new = AuthService.sms_login(
             db=db,
@@ -79,9 +90,14 @@ async def sms_login(
 @router.post("/login/password")
 async def password_login(
     request: PasswordLoginRequest,
+    http_request: Request,
     db: Session = Depends(get_db)
 ):
     """密码登录"""
+    # 限流：每IP每分钟3次
+    client_ip = http_request.client.host if http_request.client else "unknown"
+    await check_rate_limit(login_limiter, client_ip)
+
     try:
         user, tokens = AuthService.password_login(
             db=db,

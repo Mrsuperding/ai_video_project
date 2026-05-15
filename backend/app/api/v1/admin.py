@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
+from sqlalchemy import or_
 from typing import Optional
 
 from app.database import get_db
@@ -12,6 +13,11 @@ from app.schemas.admin import *
 from app.schemas.response import success_response, error_response
 from app.core.security import verify_password, get_password_hash, create_tokens
 from app.core.exceptions import UnauthorizedException, NotFoundException
+from app.models.admin import Admin, SystemConfig
+from app.models.user import User
+from app.models.wallet import UserWallet
+from app.models.message import ContentReview
+from app.services.wallet_service import WalletService
 
 router = APIRouter()
 
@@ -22,8 +28,6 @@ async def admin_login(
     db: Session = Depends(get_db)
 ):
     """管理员登录"""
-    from app.models.admin import Admin
-
     admin = db.query(Admin).filter(
         Admin.username == request.username,
         Admin.status == "active"
@@ -32,7 +36,7 @@ async def admin_login(
     if not admin or not verify_password(request.password, admin.password_hash):
         return error_response(20001, "用户名或密码错误")
 
-    tokens = create_tokens(admin.id, is_admin=True)
+    tokens = create_tokens(admin.id, role="admin")
 
     return success_response({
         "admin": {
@@ -56,9 +60,6 @@ async def get_users(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """获取用户列表"""
-    from app.models.user import User
-    from sqlalchemy import or_
-
     query = db.query(User).filter(User.status != "deleted")
 
     if keyword:
@@ -80,8 +81,6 @@ async def get_users(
     users = query.order_by(
         User.created_at.desc()
     ).offset((page - 1) * page_size).limit(page_size).all()
-
-    from app.models.wallet import UserWallet
 
     items = []
     for user in users:
@@ -117,10 +116,6 @@ async def get_user_detail(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """获取用户详情"""
-    from app.models.user import User
-    from app.models.wallet import UserWallet
-    from app.services.wallet_service import WalletService
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return error_response(40401, "用户不存在")
@@ -164,8 +159,6 @@ async def ban_user(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """封禁/解封用户"""
-    from app.models.user import User
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return error_response(40401, "用户不存在")
@@ -174,8 +167,6 @@ async def ban_user(
     db.commit()
 
     return success_response(message=f"用户已{'封禁' if request.action == 'ban' else '解封'}")
-
-
 # 内容审核
 @router.get("/reviews/pending")
 async def get_pending_reviews(
@@ -186,8 +177,6 @@ async def get_pending_reviews(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """获取待审核列表"""
-    from app.models.message import ContentReview
-
     query = db.query(ContentReview).filter(ContentReview.result == "pending")
 
     if target_type:
@@ -232,6 +221,14 @@ async def approve_review(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """审核通过"""
+    review = db.query(ContentReview).filter(ContentReview.id == review_id).first()
+    if not review:
+        return error_response(40401, "审核记录不存在")
+
+    review.result = "approved"
+    review.reviewer_id = admin_id
+    db.commit()
+
     return success_response(message="审核通过")
 
 
@@ -243,6 +240,15 @@ async def reject_review(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """审核驳回"""
+    review = db.query(ContentReview).filter(ContentReview.id == review_id).first()
+    if not review:
+        return error_response(40401, "审核记录不存在")
+
+    review.result = "rejected"
+    review.reviewer_id = admin_id
+    review.review_comment = request.reason
+    db.commit()
+
     return success_response(message="审核驳回")
 
 
@@ -256,40 +262,44 @@ async def get_platform_statistics(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """平台整体统计"""
+    # 查询实际数据
+    from datetime import datetime, timedelta
+
+    end_dt = datetime.now()
+    start_dt = end_dt - timedelta(days=7)
+
+    # 用户统计
+    total_users = db.query(User).count()
+    new_users = db.query(User).filter(User.created_at >= start_dt).count()
+
+    # 其他统计可以继续添加...
     return success_response({
         "period": period,
-        "start_date": start_date or "2024-01-08",
-        "end_date": end_date or "2024-01-14",
+        "start_date": start_date or start_dt.strftime("%Y-%m-%d"),
+        "end_date": end_date or end_dt.strftime("%Y-%m-%d"),
         "users": {
-            "new": 1250,
-            "active": 5800,
-            "paid": 320,
-            "churned": 45
+            "total": total_users,
+            "new": new_users,
+            "active": 0,
+            "paid": 0,
+            "churned": 0
         },
         "business": {
-            "video_projects_created": 850,
-            "video_projects_completed": 780,
-            "video_projects_failed": 12,
-            "video_success_rate": 98.5,
-            "digital_humans_created": 180,
-            "avg_video_duration": 42.5
+            "video_projects_created": 0,
+            "video_projects_completed": 0,
+            "video_projects_failed": 0,
+            "video_success_rate": 0,
+            "digital_humans_created": 0,
+            "avg_video_duration": 0
         },
         "finance": {
-            "total_revenue_cents": 125000,
-            "membership_revenue_cents": 85000,
-            "single_purchase_revenue_cents": 40000,
-            "total_cost_cents": 45000,
-            "gross_profit_cents": 80000
+            "total_revenue_cents": 0,
+            "membership_revenue_cents": 0,
+            "single_purchase_revenue_cents": 0,
+            "total_cost_cents": 0,
+            "gross_profit_cents": 0
         },
-        "models": {
-            "seeddance": {
-                "calls": 680,
-                "success": 650,
-                "fail": 30,
-                "success_rate": 95.6,
-                "cost_cents": 28000
-            }
-        }
+        "models": {}
     })
 
 
@@ -300,8 +310,6 @@ async def get_configs(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """获取系统配置"""
-    from app.models.admin import SystemConfig
-
     configs = db.query(SystemConfig).filter(SystemConfig.is_editable == "1").all()
 
     return success_response({
@@ -326,8 +334,6 @@ async def update_configs(
     admin_id: int = Depends(get_current_admin_id)
 ):
     """更新系统配置"""
-    from app.models.admin import SystemConfig
-
     for config in request.configs:
         key = config.get("key")
         value = config.get("value")
@@ -337,7 +343,7 @@ async def update_configs(
             SystemConfig.is_editable == "1"
         ).update({
             "config_value": value,
-            "updated_at": db.func.now()
+            "updated_at": func.now()
         })
 
     db.commit()

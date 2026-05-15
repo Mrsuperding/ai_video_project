@@ -68,26 +68,3 @@ async def delete_message(
     """删除消息"""
     MessageService.delete_message(db, user_id, message_id)
     return success_response(message="删除成功")
-
-
-# 通知设置
-@router.get("/settings")
-async def get_notification_settings(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
-):
-    """获取通知设置"""
-    settings = MessageService.get_notification_settings(db, user_id)
-    return success_response(settings)
-
-
-@router.patch("/settings")
-async def update_notification_settings(
-    request: UpdateNotificationSettingsRequest,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
-):
-    """更新通知设置"""
-    data = request.model_dump(exclude_unset=True)
-    settings = MessageService.update_notification_settings(db, user_id, data)
-    return success_response(settings)
