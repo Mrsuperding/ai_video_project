@@ -1,0 +1,1288 @@
+-- AI 数字人视频定制平台 - 数据库创建脚本
+-- 数据库名: ai_digital_human
+-- 字符集: utf8mb4
+-- 排序规则: utf8mb4_unicode_ci
+
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS ai_digital_human
+DEFAULT CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+USE ai_digital_human;
+
+-- =====================================================
+-- 一、用户系统模块
+-- =====================================================
+
+-- 1.1 用户主表 (users)
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT COMMENT '用户ID',
+    phone VARCHAR(20) UNIQUE COMMENT '手机号，登录用',
+    email VARCHAR(100) UNIQUE COMMENT '邮箱，登录用',
+    password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希值',
+    nickname VARCHAR(50) NOT NULL COMMENT '昵称',
+    avatar_url VARCHAR(500) COMMENT '头像URL',
+    bio TEXT COMMENT '个人简介',
+    real_name VARCHAR(50) COMMENT '真实姓名',
+    id_card_number VARCHAR(18) COMMENT '身份证号',
+    real_name_verified TINYINT(1) DEFAULT 0 COMMENT '实名认证状态: 0-未认证, 1-已认证',
+
+    membership_type ENUM('free', 'basic', 'pro', 'enterprise') DEFAULT 'free' COMMENT '会员类型',
+    membership_expire_at DATETIME COMMENT '会员到期时间',
+
+    quota_digital_human INT DEFAULT 3 COMMENT '数字人配额',
+    quota_video_monthly INT DEFAULT 10 COMMENT '每月视频生成次数配额',
+    quota_video_max_duration INT DEFAULT 60 COMMENT '单视频最长时长(秒)',
+    quota_storage_mb INT DEFAULT 1024 COMMENT '存储空间配额(MB)',
+
+    status ENUM('active', 'suspended', 'deleted') DEFAULT 'active' COMMENT '账号状态',
+
+    last_login_at DATETIME COMMENT '最后登录时间',
+    last_login_ip VARCHAR(45) COMMENT '最后登录IP',
+    register_ip VARCHAR(45) COMMENT '注册IP',
+    register_source ENUM('web', 'mobile', 'wechat', 'google', 'apple') DEFAULT 'web' COMMENT '注册来源',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME COMMENT '软删除时间',
+
+    INDEX idx_phone (phone),
+    INDEX idx_email (email),
+    INDEX idx_membership (membership_type, membership_expire_at),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户主表';
+
+-- 1.2 用户登录历史表 (user_login_histories)
+CREATE TABLE IF NOT EXISTS user_login_histories (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    login_type ENUM('password', 'sms', 'oauth', 'wechat', 'google', 'apple') COMMENT '登录方式',
+    device_type ENUM('web', 'ios', 'android', 'unknown') COMMENT '设备类型',
+    device_id VARCHAR(100) COMMENT '设备唯一标识',
+    ip_address VARCHAR(45) NOT NULL COMMENT 'IP地址',
+    user_agent TEXT COMMENT 'User-Agent信息',
+    location_country VARCHAR(50) COMMENT '国家',
+    location_province VARCHAR(50) COMMENT '省份',
+    location_city VARCHAR(50) COMMENT '城市',
+    is_abnormal TINYINT(1) DEFAULT 0 COMMENT '是否异常登录: 0-正常, 1-异地',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_ip (ip_address),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户登录历史表';
+
+-- 1.3 用户绑定设备表 (user_devices)
+CREATE TABLE IF NOT EXISTS user_devices (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    device_id VARCHAR(100) NOT NULL COMMENT '设备唯一标识',
+    device_name VARCHAR(100) COMMENT '设备名称',
+    device_type ENUM('web', 'ios', 'android', 'desktop') COMMENT '设备类型',
+    os_version VARCHAR(50) COMMENT '系统版本',
+    app_version VARCHAR(50) COMMENT 'App版本',
+    last_active_at DATETIME COMMENT '最后活跃时间',
+    is_active TINYINT(1) DEFAULT 1 COMMENT '是否活跃',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_user_device (user_id, device_id),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户绑定设备表';
+
+-- 1.4 OAuth 绑定表 (user_oauth_bindings)
+CREATE TABLE IF NOT EXISTS user_oauth_bindings (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    provider ENUM('wechat', 'google', 'apple') NOT NULL COMMENT 'OAuth提供商',
+    provider_user_id VARCHAR(100) NOT NULL COMMENT '第三方平台用户ID',
+    access_token VARCHAR(500) COMMENT '访问令牌',
+    refresh_token VARCHAR(500) COMMENT '刷新令牌',
+    token_expire_at DATETIME COMMENT '令牌过期时间',
+    union_id VARCHAR(100) COMMENT '开放平台统一ID(微信)',
+    avatar_url VARCHAR(500) COMMENT '第三方头像',
+    nickname VARCHAR(50) COMMENT '第三方昵称',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_provider_user (provider, provider_user_id),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='OAuth绑定表';
+
+-- 1.5 用户钱包表 (user_wallets)
+CREATE TABLE IF NOT EXISTS user_wallets (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    balance DECIMAL(12,4) DEFAULT 0.0000 COMMENT '账户余额',
+    frozen_balance DECIMAL(12,4) DEFAULT 0.0000 COMMENT '冻结余额',
+    total_recharge DECIMAL(12,4) DEFAULT 0.0000 COMMENT '累计充值金额',
+    total_consume DECIMAL(12,4) DEFAULT 0.0000 COMMENT '累计消费金额',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户钱包表';
+
+-- 1.6 用户钱包流水表 (user_wallet_transactions)
+CREATE TABLE IF NOT EXISTS user_wallet_transactions (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    transaction_no VARCHAR(50) UNIQUE NOT NULL COMMENT '交易流水号',
+    transaction_type ENUM('recharge', 'consume', 'refund', 'recharge_refund', 'invite_reward', 'admin_adjust') NOT NULL COMMENT '交易类型',
+    amount DECIMAL(12,4) NOT NULL COMMENT '交易金额(正为收入,负为支出)',
+    balance_before DECIMAL(12,4) NOT NULL COMMENT '交易前余额',
+    balance_after DECIMAL(12,4) NOT NULL COMMENT '交易后余额',
+    related_type VARCHAR(50) COMMENT '关联类型: video_order, membership_order, etc.',
+    related_id BIGINT UNSIGNED COMMENT '关联ID',
+    remark VARCHAR(255) COMMENT '备注',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_transaction_no (transaction_no),
+    INDEX idx_type_time (transaction_type, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户钱包流水表';
+
+-- 1.7 会员订阅表 (user_memberships)
+CREATE TABLE IF NOT EXISTS user_memberships (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    membership_type ENUM('basic', 'pro', 'enterprise') NOT NULL COMMENT '会员类型',
+    original_price DECIMAL(10,2) COMMENT '原价',
+    actual_price DECIMAL(10,2) NOT NULL COMMENT '实付金额',
+    payment_method ENUM('alipay', 'wechat', 'stripe', 'wallet', 'coupon') COMMENT '支付方式',
+    order_no VARCHAR(50) UNIQUE NOT NULL COMMENT '订单号',
+
+    start_at DATETIME NOT NULL COMMENT '开始时间',
+    end_at DATETIME NOT NULL COMMENT '结束时间',
+    auto_renew TINYINT(1) DEFAULT 0 COMMENT '是否自动续费',
+
+    coupon_id BIGINT UNSIGNED COMMENT '使用的优惠券ID',
+    discount_amount DECIMAL(10,2) DEFAULT 0.00 COMMENT '优惠金额',
+
+    status ENUM('pending', 'paid', 'cancelled', 'expired', 'refund') DEFAULT 'pending' COMMENT '订单状态',
+    paid_at DATETIME COMMENT '支付时间',
+    refund_at DATETIME COMMENT '退款时间',
+    refund_amount DECIMAL(10,2) COMMENT '退款金额',
+    refund_reason VARCHAR(255) COMMENT '退款原因',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_order_no (order_no),
+    INDEX idx_status_time (status, created_at),
+    INDEX idx_end_at (end_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会员订阅表';
+
+-- 1.8 优惠券表 (coupons)
+CREATE TABLE IF NOT EXISTS coupons (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL COMMENT '优惠券名称',
+    description VARCHAR(255) COMMENT '描述',
+    coupon_type ENUM('fixed', 'percent', 'free_days') NOT NULL COMMENT '类型: 固定金额/百分比/免费天数',
+    value DECIMAL(10,2) NOT NULL COMMENT '优惠值',
+    min_amount DECIMAL(10,2) DEFAULT 0.00 COMMENT '最低使用金额',
+
+    max_use_count INT COMMENT '最大使用次数',
+    used_count INT DEFAULT 0 COMMENT '已使用次数',
+    user_limit INT DEFAULT 1 COMMENT '每人限领次数',
+
+    valid_for_days INT COMMENT '领取后有效天数',
+    valid_from DATETIME COMMENT '有效期开始',
+    valid_to DATETIME COMMENT '有效期结束',
+
+    applicable_memberships JSON COMMENT '适用会员等级: ["basic", "pro"]',
+    applicable_products JSON COMMENT '适用商品类型: ["membership", "video_pack"]',
+
+    status ENUM('active', 'inactive', 'expired') DEFAULT 'active' COMMENT '状态',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='优惠券表';
+
+-- 1.9 用户优惠券表 (user_coupons)
+CREATE TABLE IF NOT EXISTS user_coupons (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    coupon_id BIGINT UNSIGNED NOT NULL COMMENT '优惠券ID',
+    coupon_code VARCHAR(50) UNIQUE NOT NULL COMMENT '券码',
+
+    status ENUM('unused', 'used', 'expired', 'invalid') DEFAULT 'unused' COMMENT '状态',
+    used_at DATETIME COMMENT '使用时间',
+    used_order_no VARCHAR(50) COMMENT '使用订单号',
+
+    valid_from DATETIME NOT NULL COMMENT '有效期开始',
+    valid_to DATETIME NOT NULL COMMENT '有效期结束',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_code (coupon_code),
+    INDEX idx_user_id (user_id),
+    INDEX idx_status_time (status, valid_to),
+    INDEX idx_coupon_id (coupon_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户优惠券表';
+
+-- =====================================================
+-- 二、短信验证码表
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS sms_verification_codes (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    phone VARCHAR(20) NOT NULL COMMENT '手机号',
+    code VARCHAR(10) NOT NULL COMMENT '验证码',
+    code_type ENUM('register', 'login', 'reset_password', 'bind_phone', 'unbind_phone') NOT NULL COMMENT '验证码类型',
+    ip_address VARCHAR(45) COMMENT '请求IP',
+    device_id VARCHAR(100) COMMENT '设备ID',
+
+    is_used TINYINT(1) DEFAULT 0 COMMENT '是否已使用',
+    used_at DATETIME COMMENT '使用时间',
+
+    expire_at DATETIME NOT NULL COMMENT '过期时间',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_phone_type (phone, code_type),
+    INDEX idx_expire_at (expire_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='短信验证码表';
+
+-- =====================================================
+-- 三、数字人管理模块
+-- =====================================================
+
+-- 3.1 数字人表 (digital_humans)
+CREATE TABLE IF NOT EXISTS digital_humans (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    name VARCHAR(100) NOT NULL COMMENT '数字人名称',
+    description TEXT COMMENT '描述/备注',
+
+    -- 源照片
+    source_type ENUM('single_photo', 'multi_photos', 'video') DEFAULT 'single_photo' COMMENT '源类型',
+    source_photos JSON COMMENT '源照片信息: [{"url":"...", "width":512, "height":512, "face_count":1}]',
+    photo_count TINYINT COMMENT '照片数量',
+
+    -- 生成配置
+    gender ENUM('male', 'female', 'unknown') COMMENT '性别',
+    age_group ENUM('child', 'young', 'middle', 'senior') COMMENT '年龄段',
+    skin_tone ENUM('light', 'medium', 'dark') COMMENT '肤色',
+
+    -- 外观配置
+    hairstyle_id BIGINT UNSIGNED COMMENT '发型配置ID',
+    clothing_type ENUM('business', 'casual', 'formal', 'custom') COMMENT '服装类型',
+    clothing_url VARCHAR(500) COMMENT '自定义服装图URL',
+    accessories JSON COMMENT '配饰: {"glasses":true, "earring":false}',
+    background_type ENUM('transparent', 'color', 'scene', 'custom') COMMENT '背景类型',
+    background_value VARCHAR(50) COMMENT '背景值: 颜色代码/场景ID/自定义图URL',
+
+    -- 生成状态
+    status ENUM('pending', 'processing', 'completed', 'failed', 'deleted') DEFAULT 'pending' COMMENT '生成状态',
+    model_version VARCHAR(50) COMMENT '模型版本',
+    model_provider VARCHAR(50) COMMENT '模型提供商',
+
+    -- 生成结果
+    model_file_url VARCHAR(500) COMMENT '数字人模型文件URL',
+    preview_image_url VARCHAR(500) COMMENT '静态预览图URL',
+    preview_video_url VARCHAR(500) COMMENT '动态预览视频URL(3-5秒)',
+    preview_video_duration DECIMAL(5,2) COMMENT '预览视频时长(秒)',
+
+    -- 肖像权
+    authorization_type ENUM('self', 'others', 'public') NOT NULL COMMENT '授权类型: 自己/他人/公众人物',
+    authorization_status ENUM('auto_approved', 'pending', 'approved', 'rejected') DEFAULT 'auto_approved' COMMENT '授权审核状态',
+    authorization_proof_url VARCHAR(500) COMMENT '授权证明文件URL',
+    authorization_reject_reason VARCHAR(255) COMMENT '驳回原因',
+    authorization_expire_at DATETIME COMMENT '授权到期时间',
+
+    usage_count INT DEFAULT 0 COMMENT '使用次数',
+    is_default TINYINT(1) DEFAULT 0 COMMENT '是否为默认数字人',
+
+    -- 版本管理
+    parent_id BIGINT UNSIGNED COMMENT '父版本ID(重新生成时)',
+    version_number INT DEFAULT 1 COMMENT '版本号',
+
+    error_message TEXT COMMENT '生成失败原因',
+    retry_count INT DEFAULT 0 COMMENT '重试次数',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME COMMENT '软删除时间',
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_authorization (authorization_type, authorization_status),
+    INDEX idx_usage_count (usage_count DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数字人表';
+
+-- 3.2 数字人生成任务表 (digital_human_tasks)
+CREATE TABLE IF NOT EXISTS digital_human_tasks (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    digital_human_id BIGINT UNSIGNED COMMENT '数字人ID',
+    human_name VARCHAR(100) NOT NULL COMMENT '数字人名称',
+
+    task_type ENUM('create', 'update', 'retrain') NOT NULL COMMENT '任务类型',
+    status ENUM('queued', 'processing', 'completed', 'failed', 'cancelled') DEFAULT 'queued' COMMENT '任务状态',
+    priority TINYINT DEFAULT 5 COMMENT '优先级: 1-10, 数字越大优先级越高',
+
+    -- 模型配置
+    model_provider VARCHAR(50) NOT NULL COMMENT '提供商: seeddance, heygen, runway',
+    model_name VARCHAR(100) NOT NULL COMMENT '模型名称',
+    model_version VARCHAR(50) COMMENT '模型版本',
+
+    -- 输入参数
+    input_config JSON NOT NULL COMMENT '输入配置',
+
+    -- 进度
+    progress TINYINT DEFAULT 0 COMMENT '进度 0-100',
+    current_step VARCHAR(50) COMMENT '当前步骤',
+
+    -- 输出结果
+    output_config JSON COMMENT '输出结果',
+    model_file_url VARCHAR(500) COMMENT '模型文件URL',
+    preview_image_url VARCHAR(500) COMMENT '预览图URL',
+    preview_video_url VARCHAR(500) COMMENT '预览视频URL',
+
+    -- 耗时与成本
+    started_at DATETIME COMMENT '开始处理时间',
+    completed_at DATETIME COMMENT '完成时间',
+    duration_seconds INT COMMENT '处理耗时(秒)',
+    cost_cents INT COMMENT '成本(分)',
+
+    -- 错误处理
+    error_code VARCHAR(50) COMMENT '错误代码',
+    error_message TEXT COMMENT '错误信息',
+    retry_count INT DEFAULT 0 COMMENT '重试次数',
+    max_retries INT DEFAULT 3 COMMENT '最大重试次数',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_digital_human_id (digital_human_id),
+    INDEX idx_status (status, priority),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='数字人生成任务表';
+
+-- 3.3 声音克隆表 (voice_clones)
+CREATE TABLE IF NOT EXISTS voice_clones (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    digital_human_id BIGINT UNSIGNED COMMENT '关联数字人ID',
+    name VARCHAR(100) NOT NULL COMMENT '音色名称',
+
+    -- 源音频
+    source_audio_url VARCHAR(500) NOT NULL COMMENT '源音频文件URL',
+    source_duration DECIMAL(6,2) COMMENT '源音频时长(秒)',
+    language VARCHAR(10) COMMENT '语言: zh, en, ja, etc.',
+
+    -- 生成状态
+    status ENUM('pending', 'processing', 'completed', 'failed') DEFAULT 'pending' COMMENT '生成状态',
+    model_provider VARCHAR(50) COMMENT 'TTS提供商',
+    model_name VARCHAR(100) COMMENT 'TTS模型',
+
+    -- 生成结果
+    voice_id VARCHAR(100) COMMENT 'TTS平台返回的音色ID',
+    sample_audio_url VARCHAR(500) COMMENT '示例音频URL',
+
+    -- 属性
+    gender ENUM('male', 'female', 'neutral') COMMENT '性别',
+    age_group ENUM('young', 'middle', 'senior') COMMENT '年龄段',
+    emotion ENUM('neutral', 'happy', 'sad', 'angry') COMMENT '情感倾向',
+
+    usage_count INT DEFAULT 0 COMMENT '使用次数',
+    is_default TINYINT(1) DEFAULT 0 COMMENT '是否为默认音色',
+
+    error_message TEXT COMMENT '错误信息',
+    retry_count INT DEFAULT 0 COMMENT '重试次数',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_digital_human_id (digital_human_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='声音克隆表';
+
+-- =====================================================
+-- 四、文案脚本模块
+-- =====================================================
+
+-- 4.1 脚本表 (scripts)
+CREATE TABLE IF NOT EXISTS scripts (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    title VARCHAR(200) NOT NULL COMMENT '脚本标题',
+    description TEXT COMMENT '脚本描述',
+
+    -- 脚本内容
+    content JSON NOT NULL COMMENT '脚本内容: {"segments":[{"text":"第一段","duration":5,"emotion":"neutral","speed":1.0}]}',
+    plain_text TEXT COMMENT '纯文本内容(用于搜索)',
+    word_count INT COMMENT '字数',
+    estimated_duration DECIMAL(8,2) COMMENT '预估时长(秒)',
+
+    -- 配置
+    language VARCHAR(10) DEFAULT 'zh' COMMENT '主要语言: zh, en, ja, etc.',
+    voice_id BIGINT UNSIGNED COMMENT '关联音色ID',
+    base_tts_speed DECIMAL(3,2) DEFAULT 1.00 COMMENT '基础语速',
+
+    -- 元数据
+    tags JSON COMMENT '标签: ["带货", "科普", "祝福"]',
+    category VARCHAR(50) COMMENT '分类: 商品带货, 知识科普, 节日祝福, etc.',
+    template_id BIGINT UNSIGNED COMMENT '来源模板ID',
+    is_template TINYINT(1) DEFAULT 0 COMMENT '是否为模板(用户自建)',
+
+    -- AI 生成标记
+    ai_generated TINYINT(1) DEFAULT 0 COMMENT '是否AI生成',
+    ai_prompt TEXT COMMENT 'AI生成时的提示词',
+    ai_model VARCHAR(50) COMMENT '使用的AI模型',
+
+    -- 状态
+    status ENUM('draft', 'published', 'archived') DEFAULT 'draft' COMMENT '状态',
+
+    usage_count INT DEFAULT 0 COMMENT '使用次数',
+    view_count INT DEFAULT 0 COMMENT '查看次数',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME COMMENT '软删除时间',
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_category (category),
+    INDEX idx_is_template (is_template),
+    FULLTEXT INDEX idx_content (plain_text)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='脚本表';
+
+-- 4.2 脚本模板表 (script_templates)
+CREATE TABLE IF NOT EXISTS script_templates (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL COMMENT '模板名称',
+    description TEXT COMMENT '模板描述',
+    cover_image_url VARCHAR(500) COMMENT '封面图URL',
+
+    -- 分类与标签
+    category VARCHAR(50) NOT NULL COMMENT '分类',
+    subcategory VARCHAR(50) COMMENT '子分类',
+    tags JSON COMMENT '标签',
+
+    -- 模板内容
+    content JSON NOT NULL COMMENT '模板内容结构',
+    example_text TEXT COMMENT '示例文本',
+    prompt_template TEXT COMMENT 'AI生成提示词模板',
+
+    -- 使用配置
+    language VARCHAR(10) DEFAULT 'zh' COMMENT '支持语言',
+    input_fields JSON COMMENT '需要的输入字段: [{"name":"商品名","type":"text","required":true}]',
+
+    -- 来源信息
+    source ENUM('platform', 'user', 'market') DEFAULT 'platform' COMMENT '来源: 平台/用户/市场',
+    creator_id BIGINT UNSIGNED COMMENT '创建者ID(用户上传)',
+    price DECIMAL(10,2) COMMENT '价格(市场模板)',
+
+    -- 统计
+    usage_count INT DEFAULT 0 COMMENT '使用次数',
+    favor_count INT DEFAULT 0 COMMENT '收藏次数',
+    rating DECIMAL(3,2) COMMENT '评分(1-5)',
+    rating_count INT DEFAULT 0 COMMENT '评分人数',
+
+    -- 状态
+    status ENUM('active', 'inactive', 'deleted') DEFAULT 'active' COMMENT '状态',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_category (category),
+    INDEX idx_source (source),
+    INDEX idx_status (status),
+    INDEX idx_usage_count (usage_count DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='脚本模板表';
+
+-- 4.3 AI 写作任务表 (ai_writing_tasks)
+CREATE TABLE IF NOT EXISTS ai_writing_tasks (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    script_id BIGINT UNSIGNED COMMENT '关联脚本ID',
+
+    task_type ENUM('generate', 'rewrite', 'expand', 'shrink', 'translate', 'polish') NOT NULL COMMENT '任务类型',
+
+    -- 输入
+    input_prompt TEXT COMMENT '提示词/主题',
+    input_text TEXT COMMENT '输入文本(改写/润色时)',
+    source_language VARCHAR(10) COMMENT '源语言(翻译时)',
+    target_language VARCHAR(10) COMMENT '目标语言(翻译时)',
+    template_id BIGINT UNSIGNED COMMENT '使用的模板ID',
+
+    -- 输出
+    output_text TEXT COMMENT '生成的内容',
+    output_segments JSON COMMENT '分段后的内容',
+
+    -- 状态
+    status ENUM('queued', 'processing', 'completed', 'failed') DEFAULT 'queued' COMMENT '状态',
+    progress TINYINT DEFAULT 0 COMMENT '进度 0-100',
+
+    -- 属性
+    ai_model VARCHAR(50) COMMENT '使用的AI模型',
+    emotion ENUM('neutral', 'happy', 'serious', 'humorous') COMMENT '情感倾向',
+    style VARCHAR(50) COMMENT '风格: 正式, 口语, 学术, etc.',
+
+    -- 成本
+    input_tokens INT COMMENT '输入token数',
+    output_tokens INT COMMENT '输出token数',
+    cost_cents INT COMMENT '成本(分)',
+
+    error_message TEXT COMMENT '错误信息',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_script_id (script_id),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI写作任务表';
+
+-- =====================================================
+-- 五、素材库模块
+-- =====================================================
+
+-- 5.1 用户素材表 (user_assets)
+CREATE TABLE IF NOT EXISTS user_assets (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+
+    -- 文件信息
+    asset_type ENUM('image', 'video', 'audio', 'font', 'subtitle_style') NOT NULL COMMENT '素材类型',
+    original_filename VARCHAR(255) NOT NULL COMMENT '原始文件名',
+    file_url VARCHAR(500) NOT NULL COMMENT '文件URL',
+    file_path VARCHAR(500) COMMENT '文件存储路径',
+    file_size BIGINT NOT NULL COMMENT '文件大小(字节)',
+
+    -- 媒体属性
+    width INT COMMENT '宽度(像素)',
+    height INT COMMENT '高度(像素)',
+    duration DECIMAL(10,2) COMMENT '时长(秒, 视频/音频)',
+    fps DECIMAL(5,2) COMMENT '帧率(视频)',
+    audio_channels TINYINT COMMENT '声道数(音频)',
+    codec VARCHAR(50) COMMENT '编码格式',
+
+    -- 元数据
+    name VARCHAR(200) NOT NULL COMMENT '素材名称',
+    description TEXT COMMENT '描述',
+    category VARCHAR(50) COMMENT '分类',
+    tags JSON COMMENT '标签',
+    color VARCHAR(20) COMMENT '主色调(图片)',
+
+    -- 使用统计
+    usage_count INT DEFAULT 0 COMMENT '使用次数',
+
+    -- 状态
+    status ENUM('uploading', 'processing', 'ready', 'failed') DEFAULT 'uploading' COMMENT '状态',
+    error_message TEXT COMMENT '错误信息',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME COMMENT '软删除时间',
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_type (asset_type),
+    INDEX idx_category (category),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户素材表';
+
+-- 5.2 平台素材库表 (platform_assets)
+CREATE TABLE IF NOT EXISTS platform_assets (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+
+    -- 文件信息
+    asset_type ENUM('background', 'bgm', 'transition', 'sticker', 'subtitle_style', 'particle_effect') NOT NULL COMMENT '素材类型',
+    original_filename VARCHAR(255) NOT NULL COMMENT '原始文件名',
+    file_url VARCHAR(500) NOT NULL COMMENT '文件URL',
+    file_path VARCHAR(500) COMMENT '文件存储路径',
+    file_size BIGINT COMMENT '文件大小(字节)',
+
+    -- 媒体属性
+    width INT COMMENT '宽度(像素)',
+    height INT COMMENT '高度(像素)',
+    duration DECIMAL(10,2) COMMENT '时长(秒, 视频/音频)',
+    fps DECIMAL(5,2) COMMENT '帧率(视频)',
+
+    -- 分类与标签
+    category VARCHAR(50) NOT NULL COMMENT '分类: 办公, 户外, 精致, etc.',
+    subcategory VARCHAR(50) COMMENT '子分类',
+    tags JSON COMMENT '标签',
+
+    -- 授权信息
+    license_type ENUM('free', 'premium', 'exclusive') COMMENT '授权类型: 免费/付费/独家',
+    membership_required ENUM('free', 'all', 'basic', 'pro', 'enterprise') DEFAULT 'free' COMMENT '会员等级要求',
+
+    -- 统计
+    usage_count INT DEFAULT 0 COMMENT '使用次数',
+    view_count INT DEFAULT 0 COMMENT '查看次数',
+
+    -- 状态
+    status ENUM('active', 'inactive', 'deleted') DEFAULT 'active' COMMENT '状态',
+
+    -- 上传信息
+    uploader_id BIGINT UNSIGNED COMMENT '上传者ID(管理员)',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_type (asset_type),
+    INDEX idx_category (category),
+    INDEX idx_license (license_type, membership_required),
+    INDEX idx_status (status),
+    INDEX idx_usage_count (usage_count DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台素材库表';
+
+-- 5.3 素材分类表 (asset_categories)
+CREATE TABLE IF NOT EXISTS asset_categories (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL COMMENT '分类名称',
+    name_en VARCHAR(100) COMMENT '英文名称',
+    icon VARCHAR(100) COMMENT '图标',
+
+    -- 层级关系
+    parent_id BIGINT UNSIGNED COMMENT '父分类ID',
+    level TINYINT DEFAULT 1 COMMENT '层级: 1-一级, 2-二级, 3-三级',
+    path VARCHAR(200) COMMENT '路径串: 1/2/5',
+
+    -- 限制
+    asset_types JSON COMMENT '适用素材类型: ["image", "video"]',
+
+    -- 排序
+    sort_order INT DEFAULT 0 COMMENT '排序序号',
+
+    -- 状态
+    status ENUM('active', 'inactive') DEFAULT 'active',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_parent (parent_id),
+    INDEX idx_level (level),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='素材分类表';
+
+-- =====================================================
+-- 六、视频生成模块
+-- =====================================================
+
+-- 6.1 视频项目表 (video_projects)
+CREATE TABLE IF NOT EXISTS video_projects (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    project_name VARCHAR(200) NOT NULL COMMENT '项目名称',
+    description TEXT COMMENT '项目描述',
+
+    -- 视频配置
+    resolution ENUM('720p', '1080p', '2k', '4k') DEFAULT '1080p' COMMENT '分辨率',
+    aspect_ratio VARCHAR(20) DEFAULT '16:9' COMMENT '宽高比: 16:9, 9:16, 1:1, etc.',
+    fps TINYINT DEFAULT 30 COMMENT '帧率: 24, 30, 60',
+    max_duration INT COMMENT '最大时长(秒)',
+
+    -- 数字人配置
+    digital_human_id BIGINT UNSIGNED NOT NULL COMMENT '主数字人ID',
+    digital_human_config JSON COMMENT '数字人配置: {"position":"center","scale":1.0,"mode":"half_body"}',
+
+    -- 脚本配置
+    script_id BIGINT UNSIGNED NOT NULL COMMENT '脚本ID',
+    script_content JSON COMMENT '脚本内容快照(防止脚本被修改后项目混乱)',
+
+    -- TTS 配置
+    voice_id BIGINT UNSIGNED COMMENT 'TTS音色ID',
+    tts_config JSON COMMENT 'TTS配置: {"speed":1.0,"pitch":0,"emotion":"neutral"}',
+
+    -- 素材配置
+    background_asset_id BIGINT UNSIGNED COMMENT '背景素材ID',
+    background_type ENUM('color', 'image', 'video', 'transparent') DEFAULT 'image' COMMENT '背景类型',
+    background_value VARCHAR(100) COMMENT '背景值: 颜色代码/素材ID/视频ID',
+
+    bgm_asset_id BIGINT UNSIGNED COMMENT '背景音乐素材ID',
+    bgm_volume DECIMAL(3,2) DEFAULT 0.30 COMMENT 'BGM音量(0-1)',
+
+    -- 时间线配置
+    timeline_config JSON COMMENT '时间线配置(专业模式)',
+    subtitle_config JSON COMMENT '字幕配置',
+
+    -- 标签与分类
+    tags JSON COMMENT '标签',
+    category VARCHAR(50) COMMENT '分类',
+
+    -- 生成状态
+    generation_status ENUM('draft', 'queued', 'preprocessing', 'generating', 'postprocessing', 'quality_check', 'completed', 'failed') DEFAULT 'draft' COMMENT '生成状态',
+    model_provider VARCHAR(50) COMMENT '实际使用的模型提供商',
+    model_name VARCHAR(100) COMMENT '实际使用的模型',
+    priority TINYINT DEFAULT 5 COMMENT '优先级: 1-10',
+
+    -- 统计
+    view_count INT DEFAULT 0 COMMENT '查看次数',
+    download_count INT DEFAULT 0 COMMENT '下载次数',
+    share_count INT DEFAULT 0 COMMENT '分享次数',
+
+    -- 费用
+    cost_cents INT COMMENT '实际成本(分)',
+
+    -- 删除
+    deleted_at DATETIME COMMENT '软删除时间',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_digital_human (digital_human_id),
+    INDEX idx_script (script_id),
+    INDEX idx_status_time (generation_status, created_at),
+    INDEX idx_created_at (created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频项目表';
+
+-- 6.2 视频输出表 (video_outputs)
+CREATE TABLE IF NOT EXISTS video_outputs (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    project_id BIGINT UNSIGNED NOT NULL COMMENT '项目ID',
+
+    -- 文件信息
+    video_url VARCHAR(500) NOT NULL COMMENT '视频文件URL',
+    video_path VARCHAR(500) COMMENT '视频存储路径',
+    thumbnail_url VARCHAR(500) COMMENT '缩略图URL',
+    video_file_size BIGINT COMMENT '视频文件大小(字节)',
+
+    -- 媒体属性
+    resolution VARCHAR(20) COMMENT '分辨率: 720p, 1080p, etc.',
+    duration DECIMAL(8,2) COMMENT '实际时长(秒)',
+    fps TINYINT COMMENT '帧率',
+    codec VARCHAR(50) COMMENT '编码: H.264, H.265/HEVC',
+    bitrate INT COMMENT '码率(kbps)',
+    has_audio TINYINT(1) DEFAULT 1 COMMENT '是否有音频',
+
+    -- 质量与审核
+    quality_score TINYINT COMMENT '质量评分(0-100)',
+    review_status ENUM('pending', 'approved', 'rejected', 'auto_approved', 'auto_rejected') DEFAULT 'auto_approved' COMMENT '审核状态',
+    review_reason VARCHAR(255) COMMENT '审核原因(驳回时)',
+
+    -- 安全标记
+    watermark_embedded TINYINT(1) DEFAULT 0 COMMENT '是否嵌入水印(C2PA)',
+    c2pa_manifest_url VARCHAR(500) COMMENT 'C2PA清单文件URL',
+
+    -- 共享
+    share_token VARCHAR(100) COMMENT '分享Token',
+    share_enabled TINYINT(1) DEFAULT 0 COMMENT '是否启用分享',
+    share_expire_at DATETIME COMMENT '分享过期时间',
+    share_password VARCHAR(50) COMMENT '分享密码',
+
+    -- 统计
+    view_count INT DEFAULT 0 COMMENT '查看次数',
+    download_count INT DEFAULT 0 COMMENT '下载次数',
+    share_count INT DEFAULT 0 COMMENT '分享次数',
+
+    -- 过期
+    expires_at DATETIME COMMENT '过期时间(免费用户)',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_project (project_id),
+    INDEX idx_review_status (review_status),
+    INDEX idx_created_at (created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='视频输出表';
+
+-- 6.3 生成任务表 (generation_tasks)
+CREATE TABLE IF NOT EXISTS generation_tasks (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    project_id BIGINT UNSIGNED NOT NULL COMMENT '项目ID',
+    batch_id VARCHAR(100) COMMENT '批次ID(批量生成)',
+
+    -- 任务类型
+    task_type ENUM('tts', 'video_gen', 'postprocess', 'quality_check', 'full_pipeline') NOT NULL COMMENT '任务类型',
+
+    -- 状态
+    status ENUM('queued', 'processing', 'completed', 'failed', 'cancelled') DEFAULT 'queued' COMMENT '状态',
+    priority TINYINT DEFAULT 5 COMMENT '优先级: 1-10',
+    queue_position INT COMMENT '队列位置',
+
+    -- 进度
+    progress TINYINT DEFAULT 0 COMMENT '进度 0-100',
+    current_step VARCHAR(50) COMMENT '当前步骤',
+
+    -- 模型配置
+    model_provider VARCHAR(50) COMMENT '提供商',
+    model_name VARCHAR(100) COMMENT '模型名称',
+    model_version VARCHAR(50) COMMENT '模型版本',
+
+    -- 输入参数
+    input_config JSON COMMENT '输入配置',
+
+    -- 输出结果
+    output_config JSON COMMENT '输出配置',
+    output_urls JSON COMMENT '输出文件URLs',
+
+    -- 耗时与成本
+    estimated_duration INT COMMENT '预估时长(秒)',
+    started_at DATETIME COMMENT '开始时间',
+    completed_at DATETIME COMMENT '完成时间',
+    duration_seconds INT COMMENT '实际耗时(秒)',
+    cost_cents INT COMMENT '成本(分)',
+
+    -- 重试
+    retry_count INT DEFAULT 0 COMMENT '重试次数',
+    max_retries INT DEFAULT 3 COMMENT '最大重试次数',
+    retry_from_provider VARCHAR(50) COMMENT '上次失败的提供商',
+    fallback_provider VARCHAR(50) COMMENT '切换到的提供商',
+
+    -- 错误
+    error_code VARCHAR(50) COMMENT '错误代码',
+    error_message TEXT COMMENT '错误信息',
+    is_timeout TINYINT(1) DEFAULT 0 COMMENT '是否超时',
+
+    -- 日志
+    logs JSON COMMENT '详细日志',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_project_id (project_id),
+    INDEX idx_status_priority (status, priority DESC),
+    INDEX idx_batch_id (batch_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='生成任务表';
+
+-- 6.4 TTS 语音文件表 (tts_audio_files)
+CREATE TABLE IF NOT EXISTS tts_audio_files (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+    project_id BIGINT UNSIGNED COMMENT '项目ID',
+    script_id BIGINT UNSIGNED COMMENT '脚本ID',
+    task_id BIGINT UNSIGNED COMMENT '生成任务ID',
+
+    -- 配置
+    voice_id BIGINT UNSIGNED COMMENT '音色ID',
+    text_content TEXT NOT NULL COMMENT '文本内容',
+    voice_config JSON COMMENT '语音配置: {"speed":1.0,"pitch":0,"emotion":"neutral"}',
+
+    -- 文件信息
+    audio_url VARCHAR(500) NOT NULL COMMENT '音频文件URL',
+    audio_path VARCHAR(500) COMMENT '音频存储路径',
+    file_size BIGINT COMMENT '文件大小(字节)',
+    duration DECIMAL(8,2) COMMENT '时长(秒)',
+    format VARCHAR(10) COMMENT '格式: mp3, wav, etc.',
+    sample_rate INT COMMENT '采样率: 16000, 22050, 44100, etc.',
+
+    -- TTS 信息
+    tts_provider VARCHAR(50) COMMENT 'TTS提供商',
+    tts_model VARCHAR(100) COMMENT 'TTS模型',
+    cost_cents INT COMMENT '成本(分)',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_project_id (project_id),
+    INDEX idx_voice_id (voice_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='TTS语音文件表';
+
+-- =====================================================
+-- 七、内容审核与安全模块
+-- =====================================================
+
+-- 7.1 内容审核表 (content_reviews)
+CREATE TABLE IF NOT EXISTS content_reviews (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+
+    -- 审核对象
+    target_type ENUM('digital_human', 'script', 'asset', 'video_project', 'video_output') NOT NULL COMMENT '审核对象类型',
+    target_id BIGINT UNSIGNED NOT NULL COMMENT '审核对象ID',
+
+    -- 审核类型
+    review_type ENUM('photo_upload', 'authorization', 'script_content', 'video_content', 'deepfake', 'all') NOT NULL COMMENT '审核类型',
+
+    -- 审核方式
+    review_method ENUM('ai_auto', 'ai_manual', 'manual') NOT NULL COMMENT '审核方式',
+
+    -- 审核结果
+    result ENUM('pending', 'pass', 'reject', 'pass_with_condition', 'needs_manual') DEFAULT 'pending' COMMENT '审核结果',
+    confidence DECIMAL(5,4) COMMENT 'AI置信度(0-1)',
+    reason VARCHAR(255) COMMENT '原因(通过/驳回/需要手工)',
+    details JSON COMMENT '详细审核信息',
+
+    -- 风险标签
+    risk_labels JSON COMMENT '风险标签: ["nsfw", "violence", "politics"]',
+    risk_score DECIMAL(5,2) COMMENT '风险评分(0-100)',
+
+    -- 人工审核
+    reviewer_id BIGINT UNSIGNED COMMENT '审核员ID',
+    reviewed_at DATETIME COMMENT '审核时间',
+    review_note TEXT COMMENT '审核备注',
+
+    -- 提交信息
+    submit_data JSON COMMENT '提交时的数据快照',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_target (target_type, target_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_result (result),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='内容审核表';
+
+-- 7.2 敏感词表 (sensitive_words)
+CREATE TABLE IF NOT EXISTS sensitive_words (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    word VARCHAR(100) NOT NULL COMMENT '敏感词',
+    word_type ENUM('politics', 'violence', 'porn', 'gambling', 'scam', 'ad_violation', 'custom') NOT NULL COMMENT '类型',
+    severity ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium' COMMENT '严重程度',
+
+    action ENUM('block', 'replace', 'flag', 'log') DEFAULT 'block' COMMENT '处理动作',
+    replacement VARCHAR(100) COMMENT '替换词',
+
+    status ENUM('active', 'inactive') DEFAULT 'active',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_type (word_type, status),
+    INDEX idx_word (word)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='敏感词表';
+
+-- 7.3 违规记录表 (violation_records)
+CREATE TABLE IF NOT EXISTS violation_records (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+
+    -- 违规信息
+    violation_type ENUM('photo_violation', 'content_violation', 'deepfake_abuse', 'copyright', 'fraud', 'other') NOT NULL COMMENT '违规类型',
+    violation_level ENUM('warning', 'minor', 'major', 'critical') DEFAULT 'warning' COMMENT '严重等级',
+
+    -- 涉及资源
+    target_type VARCHAR(50) COMMENT '涉及资源类型',
+    target_id BIGINT UNSIGNED COMMENT '涉及资源ID',
+
+    -- 惩罚
+    penalty_type ENUM('none', 'warning', 'limit_restriction', 'suspend', 'ban') DEFAULT 'none' COMMENT '惩罚类型',
+    penalty_duration_days INT COMMENT '限制/封禁天数',
+    penalty_detail TEXT COMMENT '惩罚详情',
+
+    -- 审核信息
+    reviewer_id BIGINT UNSIGNED COMMENT '审核员ID',
+    review_reason VARCHAR(255) COMMENT '违规原因',
+    evidence_urls JSON COMMENT '证据URLs',
+
+    -- 状态
+    status ENUM('pending', 'confirmed', 'appealed', 'resolved') DEFAULT 'pending' COMMENT '状态',
+    appeal_reason TEXT COMMENT '申诉理由',
+    appeal_at DATETIME COMMENT '申诉时间',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_type_time (violation_type, created_at),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='违规记录表';
+
+-- =====================================================
+-- 八、通知与消息模块
+-- =====================================================
+
+-- 8.1 用户消息表 (user_messages)
+CREATE TABLE IF NOT EXISTS user_messages (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+
+    -- 消息内容
+    message_type ENUM('system', 'task_complete', 'task_failed', 'review_result', 'payment', 'security', 'other') NOT NULL COMMENT '消息类型',
+    title VARCHAR(200) NOT NULL COMMENT '标题',
+    content TEXT COMMENT '内容',
+    action_url VARCHAR(500) COMMENT '跳转链接',
+    action_text VARCHAR(50) COMMENT '链接文字',
+
+    -- 关联信息
+    related_type VARCHAR(50) COMMENT '关联类型',
+    related_id BIGINT UNSIGNED COMMENT '关联ID',
+
+    -- 阅读状态
+    is_read TINYINT(1) DEFAULT 0 COMMENT '是否已读',
+    read_at DATETIME COMMENT '阅读时间',
+
+    -- 推送状态
+    push_sent TINYINT(1) DEFAULT 0 COMMENT '是否已推送',
+    email_sent TINYINT(1) DEFAULT 0 COMMENT '是否已发送邮件',
+    sms_sent TINYINT(1) DEFAULT 0 COMMENT '是否已发送短信',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id_read (user_id, is_read),
+    INDEX idx_type (message_type),
+    INDEX idx_created_at (created_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户消息表';
+
+-- 8.2 用户通知设置表 (user_notification_settings)
+CREATE TABLE IF NOT EXISTS user_notification_settings (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL UNIQUE COMMENT '用户ID',
+
+    -- 站内消息
+    notify_task_complete TINYINT(1) DEFAULT 1 COMMENT '任务完成通知',
+    notify_task_failed TINYINT(1) DEFAULT 1 COMMENT '任务失败通知',
+    notify_review_result TINYINT(1) DEFAULT 1 COMMENT '审核结果通知',
+    notify_system TINYINT(1) DEFAULT 1 COMMENT '系统公告通知',
+
+    -- 邮件
+    email_enabled TINYINT(1) DEFAULT 1 COMMENT '邮件通知总开关',
+    email_task_complete TINYINT(1) DEFAULT 0 COMMENT '任务完成(邮件)',
+    email_task_failed TINYINT(1) DEFAULT 1 COMMENT '任务失败(邮件)',
+    email_payment TINYINT(1) DEFAULT 1 COMMENT '支付相关(邮件)',
+    email_security TINYINT(1) DEFAULT 1 COMMENT '安全相关(邮件)',
+
+    -- 短信
+    sms_enabled TINYINT(1) DEFAULT 0 COMMENT '短信通知总开关',
+    sms_payment TINYINT(1) DEFAULT 0 COMMENT '支付相关(短信)',
+    sms_security TINYINT(1) DEFAULT 1 COMMENT '安全相关(短信)',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户通知设置表';
+
+-- =====================================================
+-- 九、数据统计模块
+-- =====================================================
+
+-- 9.1 用户统计表 (user_statistics)
+CREATE TABLE IF NOT EXISTS user_statistics (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+
+    -- 统计周期
+    stat_date DATE NOT NULL COMMENT '统计日期',
+    stat_type ENUM('daily', 'weekly', 'monthly') NOT NULL COMMENT '统计类型',
+
+    -- 视频相关
+    video_projects_created INT DEFAULT 0 COMMENT '创建项目数',
+    video_projects_completed INT DEFAULT 0 COMMENT '完成项目数',
+    video_projects_failed INT DEFAULT 0 COMMENT '失败项目数',
+    video_total_duration INT DEFAULT 0 COMMENT '总视频时长(秒)',
+
+    -- 数字人相关
+    digital_humans_created INT DEFAULT 0 COMMENT '创建数字人数',
+    digital_humans_used INT DEFAULT 0 COMMENT '使用数字人次数',
+
+    -- 消费
+    cost_cents INT DEFAULT 0 COMMENT '总消费(分)',
+
+    -- 存储
+    storage_used_mb INT DEFAULT 0 COMMENT '已用存储(MB)',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_user_date (user_id, stat_date, stat_type),
+    INDEX idx_stat_date (stat_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户统计表';
+
+-- 9.2 平台统计表 (platform_statistics)
+CREATE TABLE IF NOT EXISTS platform_statistics (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    stat_date DATE NOT NULL COMMENT '统计日期',
+    stat_hour TINYINT COMMENT '统计小时(0-23, hourly时)',
+
+    -- 用户统计
+    new_users INT DEFAULT 0 COMMENT '新增用户',
+    active_users INT DEFAULT 0 COMMENT '活跃用户',
+    paid_users INT DEFAULT 0 COMMENT '付费用户',
+    churned_users INT DEFAULT 0 COMMENT '流失用户',
+
+    -- 业务统计
+    video_projects_created INT DEFAULT 0 COMMENT '创建项目数',
+    video_projects_completed INT DEFAULT 0 COMMENT '完成项目数',
+    video_projects_failed INT DEFAULT 0 COMMENT '失败项目数',
+    video_total_duration INT DEFAULT 0 COMMENT '总视频时长(秒)',
+
+    -- 数字人统计
+    digital_humans_created INT DEFAULT 0 COMMENT '创建数字人数',
+    ai_tasks_submitted INT DEFAULT 0 COMMENT '提交AI任务数',
+    ai_tasks_completed INT DEFAULT 0 COMMENT '完成AI任务数',
+
+    -- 财务统计
+    total_revenue_cents INT DEFAULT 0 COMMENT '总收入(分)',
+    membership_revenue_cents INT DEFAULT 0 COMMENT '会员收入(分)',
+    single_purchase_revenue_cents INT DEFAULT 0 COMMENT '单次购买收入(分)',
+
+    -- 成本统计
+    total_cost_cents INT DEFAULT 0 COMMENT '总成本(分)',
+    model_cost_cents INT DEFAULT 0 COMMENT 'AI模型成本(分)',
+    storage_cost_cents INT DEFAULT 0 COMMENT '存储成本(分)',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_date_hour (stat_date, stat_hour),
+    INDEX idx_stat_date (stat_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='平台统计表';
+
+-- 9.3 模型调用统计表 (model_usage_statistics)
+CREATE TABLE IF NOT EXISTS model_usage_statistics (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    stat_date DATE NOT NULL COMMENT '统计日期',
+    stat_hour TINYINT COMMENT '统计小时(0-23, hourly时)',
+
+    -- 模型信息
+    model_provider VARCHAR(50) NOT NULL COMMENT '提供商',
+    model_name VARCHAR(100) NOT NULL COMMENT '模型名称',
+    model_task_type ENUM('digital_human', 'video_gen', 'tts', 'ai_writing') NOT NULL COMMENT '任务类型',
+
+    -- 调用统计
+    call_count INT DEFAULT 0 COMMENT '调用次数',
+    success_count INT DEFAULT 0 COMMENT '成功次数',
+    fail_count INT DEFAULT 0 COMMENT '失败次数',
+    timeout_count INT DEFAULT 0 COMMENT '超时次数',
+
+    -- 耗时统计
+    avg_duration_ms INT DEFAULT 0 COMMENT '平均耗时(毫秒)',
+    p50_duration_ms INT DEFAULT 0 COMMENT 'P50耗时',
+    p95_duration_ms INT DEFAULT 0 COMMENT 'P95耗时',
+    p99_duration_ms INT DEFAULT 0 COMMENT 'P99耗时',
+
+    -- 成本
+    total_cost_cents INT DEFAULT 0 COMMENT '总成本(分)',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_date_provider_model (stat_date, stat_hour, model_provider, model_name, model_task_type),
+    INDEX idx_stat_date (stat_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='模型调用统计表';
+
+-- =====================================================
+-- 十、管理后台模块
+-- =====================================================
+
+-- 10.1 管理员表 (admins)
+CREATE TABLE IF NOT EXISTS admins (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL COMMENT '用户名',
+    password_hash VARCHAR(255) NOT NULL COMMENT '密码哈希',
+    real_name VARCHAR(50) NOT NULL COMMENT '真实姓名',
+    email VARCHAR(100) UNIQUE COMMENT '邮箱',
+    phone VARCHAR(20) COMMENT '手机号',
+    avatar_url VARCHAR(500) COMMENT '头像',
+
+    -- 角色
+    role ENUM('super_admin', 'admin', 'content_reviewer', 'operator', 'viewer') NOT NULL COMMENT '角色',
+    permissions JSON COMMENT '权限列表',
+
+    -- 状态
+    status ENUM('active', 'suspended', 'deleted') DEFAULT 'active' COMMENT '状态',
+
+    -- 登录
+    last_login_at DATETIME COMMENT '最后登录时间',
+    last_login_ip VARCHAR(45) COMMENT '最后登录IP',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_role (role),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员表';
+
+-- 10.2 操作日志表 (admin_operation_logs)
+CREATE TABLE IF NOT EXISTS admin_operation_logs (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    admin_id BIGINT UNSIGNED NOT NULL COMMENT '管理员ID',
+    admin_name VARCHAR(50) COMMENT '管理员用户名',
+
+    -- 操作信息
+    action VARCHAR(100) NOT NULL COMMENT '操作: ban_user, approve_video, etc.',
+    module VARCHAR(50) NOT NULL COMMENT '模块: user, video, etc.',
+    operation_type ENUM('create', 'update', 'delete', 'view', 'approve', 'reject', 'other') NOT NULL COMMENT '操作类型',
+    description TEXT COMMENT '操作描述',
+
+    -- 目标对象
+    target_type VARCHAR(50) COMMENT '目标类型',
+    target_id BIGINT UNSIGNED COMMENT '目标ID',
+
+    -- 变更内容
+    before_data JSON COMMENT '变更前数据',
+    after_data JSON COMMENT '变更后数据',
+    changed_fields JSON COMMENT '变更字段列表',
+
+    -- 请求信息
+    request_method VARCHAR(10) COMMENT '请求方法',
+    request_uri VARCHAR(500) COMMENT '请求URI',
+    request_params TEXT COMMENT '请求参数',
+    ip_address VARCHAR(45) COMMENT 'IP地址',
+    user_agent TEXT COMMENT 'User-Agent',
+
+    -- 结果
+    result ENUM('success', 'failed') NOT NULL COMMENT '结果',
+    error_message TEXT COMMENT '错误信息',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_admin_id (admin_id),
+    INDEX idx_action (action),
+    INDEX idx_target (target_type, target_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='管理员操作日志表';
+
+-- 10.3 系统配置表 (system_configs)
+CREATE TABLE IF NOT EXISTS system_configs (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    config_key VARCHAR(100) UNIQUE NOT NULL COMMENT '配置键',
+    config_value TEXT NOT NULL COMMENT '配置值(JSON或字符串)',
+    config_type ENUM('string', 'number', 'boolean', 'json') DEFAULT 'string' COMMENT '配置类型',
+    description VARCHAR(255) COMMENT '描述',
+    category VARCHAR(50) COMMENT '分类',
+
+    is_public TINYINT(1) DEFAULT 0 COMMENT '是否公开(前端可读)',
+    is_editable TINYINT(1) DEFAULT 1 COMMENT '是否可编辑',
+
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_category (category),
+    INDEX idx_is_public (is_public)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
+
+-- =====================================================
+-- 初始化数据
+-- =====================================================
+
+-- 插入默认管理员账户 (密码: admin123)
+INSERT INTO admins (username, password_hash, real_name, role, permissions, status) VALUES
+('admin', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4pWGzTTRTRTRTRTR', '系统管理员', 'super_admin', '["all"]', 'active');
+
+-- 插入默认系统配置
+INSERT INTO system_configs (config_key, config_value, config_type, description, category, is_public) VALUES
+('site_name', 'AI数字人视频定制平台', 'string', '网站名称', 'basic', 1),
+('site_logo', '/static/images/logo.png', 'string', '网站Logo', 'basic', 1),
+('default_membership', 'free', 'string', '默认会员类型', 'membership', 0),
+('free_quota_digital_human', '3', 'number', '免费用户数字人配额', 'quota', 0),
+('free_quota_video_monthly', '10', 'number', '免费用户每月视频生成次数', 'quota', 0),
+('free_quota_storage_mb', '1024', 'number', '免费用户存储配额(MB)', 'quota', 0),
+('video_max_duration_seconds', '300', 'number', '视频最大时长(秒)', 'video', 0),
+('upload_max_size_mb', '100', 'number', '上传文件最大大小(MB)', 'upload', 0),
+('ai_review_enabled', 'true', 'boolean', '是否启用AI审核', 'review', 0),
+('sensitive_word_action', 'block', 'string', '敏感词处理动作', 'security', 0);
+
+-- 插入默认素材分类
+INSERT INTO asset_categories (name, name_en, icon, parent_id, level, path, asset_types, sort_order, status) VALUES
+('背景', 'Background', 'bg', NULL, 1, '/1', '["image", "video"]', 1, 'active'),
+('背景/办公', 'Office', 'office', 1, 2, '/1/2', '["image", "video"]', 1, 'active'),
+('背景/户外', 'Outdoor', 'outdoor', 1, 2, '/1/3', '["image", "video"]', 2, 'active'),
+('背景/精致', 'Elegant', 'elegant', 1, 2, '/1/4', '["image", "video"]', 3, 'active'),
+('背景/简约', 'Minimal', 'minimal', 1, 2, '/1/5', '["image", "video"]', 4, 'active'),
+('音乐', 'BGM', 'music', NULL, 1, '/6', '["audio"]', 2, 'active'),
+('音乐/欢快', 'Upbeat', 'upbeat', 6, 2, '/6/7', '["audio"]', 1, 'active'),
+('音乐/舒缓', 'Calm', 'calm', 6, 2, '/6/8', '["audio"]', 2, 'active'),
+('音乐/动感', 'Dynamic', 'dynamic', 6, 2, '/6/9', '["audio"]', 3, 'active'),
+('字幕样式', 'Subtitle Style', 'subtitle', NULL, 1, '/10', '["subtitle_style"]', 3, 'active'),
+('贴纸', 'Sticker', 'sticker', NULL, 1, '/11', '["sticker"]', 4, 'active'),
+('转场', 'Transition', 'transition', NULL, 1, '/12', '["transition"]', 5, 'active');
+
+-- 完成
+SELECT 'Database created successfully!' AS result;
