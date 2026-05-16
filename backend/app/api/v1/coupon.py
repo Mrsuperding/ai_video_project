@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/available")
-async def get_available_coupons(
+def get_available_coupons(
     product_type: Optional[str] = None,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -23,7 +23,7 @@ async def get_available_coupons(
 
 
 @router.post("/{coupon_id}/claim")
-async def claim_coupon(
+def claim_coupon(
     coupon_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -38,7 +38,7 @@ async def claim_coupon(
 
 
 @router.get("/my")
-async def get_my_coupons(
+def get_my_coupons(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

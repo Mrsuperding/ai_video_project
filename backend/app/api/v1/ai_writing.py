@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.post("/generate")
-async def ai_generate(
+def ai_generate(
     request: AIGenerateRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -29,7 +29,7 @@ async def ai_generate(
 
 
 @router.post("/rewrite")
-async def ai_rewrite(
+def ai_rewrite(
     request: AIRewriteRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -46,7 +46,7 @@ async def ai_rewrite(
 
 
 @router.get("/tasks/{task_id}")
-async def get_ai_task(
+def get_ai_task(
     task_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

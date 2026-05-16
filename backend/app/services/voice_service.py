@@ -2,7 +2,7 @@
 语音服务
 """
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from app.models.voice import VoiceClone
 from app.core.exceptions import NotFoundException
@@ -37,7 +37,7 @@ class VoiceService:
                     "sample_audio_url": v.sample_audio_url,
                     "duration": float(v.source_duration) if v.source_duration else None,
                     "usage_count": v.usage_count,
-                    "is_default": v.is_default == "1",
+                    "is_default": v.is_default == True,
                     "created_at": v.created_at
                 }
                 for v in items
@@ -77,12 +77,40 @@ class VoiceService:
         }
 
     @staticmethod
+    def preview_tts(
+        db: Session,
+        user_id: int,
+        text: str,
+        voice_id: Optional[int] = None,
+        config: Optional[dict] = None
+    ) -> Dict[str, Any]:
+        """TTS 预览"""
+        voice = None
+        if voice_id:
+            voice = db.query(VoiceClone).filter(
+                VoiceClone.id == voice_id,
+                VoiceClone.user_id == user_id
+            ).first()
+            if not voice:
+                raise NotFoundException("音色不存在", code=40403)
+
+        # TODO: 调用实际的 TTS 服务
+        # 目前返回模拟数据
+        return {
+            "audio_url": "https://cdn.example.com/preview/tts_sample.mp3",
+            "duration": len(text) / 5.0,  # 估算
+            "text_length": len(text),
+            "voice_id": voice_id,
+            "voice_name": voice.name if voice else None
+        }
+
+    @staticmethod
     def set_default(db: Session, user_id: int, voice_id: int) -> bool:
         """设置默认音色"""
         db.query(VoiceClone).filter(
             VoiceClone.user_id == user_id,
-            VoiceClone.is_default == "1"
-        ).update({"is_default": "0"})
+            VoiceClone.is_default == True
+        ).update({"is_default": False})
 
         voice = db.query(VoiceClone).filter(
             VoiceClone.id == voice_id,
@@ -90,7 +118,7 @@ class VoiceService:
         ).first()
 
         if voice:
-            voice.is_default = "1"
+            voice.is_default = True
             db.commit()
         return True
 

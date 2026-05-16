@@ -1,7 +1,7 @@
 """
 管理后台相关模型
 """
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Text, JSON, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, Text, JSON, Index, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -30,8 +30,8 @@ class Admin(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_role", "role"),
-        Index("idx_status", "status"),
+        Index("idx_admins_role", "role"),
+        Index("idx_admins_status", "status"),
     )
 
 
@@ -67,10 +67,10 @@ class AdminOperationLog(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_admin_id", "admin_id"),
-        Index("idx_action", "action"),
-        Index("idx_target", "target_type", "target_id"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_admin_operation_logs_admin_id", "admin_id"),
+        Index("idx_admin_operation_logs_action", "action"),
+        Index("idx_admin_operation_logs_target", "target_type", "target_id"),
+        Index("idx_admin_operation_logs_created_at", "created_at"),
     )
 
 
@@ -85,13 +85,13 @@ class SystemConfig(Base):
     description = Column(String(255), nullable=True, comment="描述")
     category = Column(String(50), nullable=True, comment="分类")
 
-    is_public = Column(Enum("0", "1"), default="0", comment="是否公开")
-    is_editable = Column(Enum("0", "1"), default="1", comment="是否可编辑")
+    is_public = Column(Boolean, default=False, comment="是否公开")
+    is_editable = Column(Boolean, default=True, comment="是否可编辑")
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_category", "category"),
-        Index("idx_is_public", "is_public"),
+        Index("idx_system_configs_category", "category"),
+        Index("idx_system_configs_is_public", "is_public"),
     )

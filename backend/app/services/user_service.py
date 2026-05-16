@@ -40,7 +40,7 @@ class UserService:
             "avatar_url": user.avatar_url,
             "bio": user.bio,
             "real_name": user.real_name,
-            "real_name_verified": user.real_name_verified == "1",
+            "real_name_verified": user.real_name_verified == True,
             "membership_type": user.membership_type,
             "membership_expire_at": user.membership_expire_at,
             "quota": quota,
@@ -139,7 +139,7 @@ class UserService:
         query = db.query(UserDevice).filter(UserDevice.user_id == user_id)
 
         if status == "active":
-            query = query.filter(UserDevice.is_active == "1")
+            query = query.filter(UserDevice.is_active == True)
         elif status == "inactive":
             query = query.filter(UserDevice.is_active == "0")
 

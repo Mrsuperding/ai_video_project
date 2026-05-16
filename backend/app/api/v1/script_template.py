@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("/list")
-async def get_templates(
+def get_templates(
     category: Optional[str] = None,
     source: str = "platform",
     page: int = Query(1, ge=1),
@@ -27,7 +27,7 @@ async def get_templates(
 
 
 @router.get("/{template_id}")
-async def get_template_detail(
+def get_template_detail(
     template_id: int,
     db: Session = Depends(get_db)
 ):

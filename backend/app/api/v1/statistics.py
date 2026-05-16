@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_user_statistics(
+def get_user_statistics(
     period: str = "monthly",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -71,7 +71,7 @@ async def get_user_statistics(
 
 
 @router.get("/quota")
-async def get_quota(
+def get_quota(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):

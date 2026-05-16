@@ -1,7 +1,7 @@
 """
 数字人相关模型
 """
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, JSON, Text, DECIMAL, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, JSON, Text, DECIMAL, Index, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -46,7 +46,7 @@ class DigitalHuman(Base):
     authorization_expire_at = Column(DateTime, nullable=True, comment="授权到期时间")
 
     usage_count = Column(BigInteger, default=0, comment="使用次数")
-    is_default = Column(Enum("0", "1"), default="0", comment="是否为默认数字人")
+    is_default = Column(Boolean, default=False, comment="是否为默认数字人")
 
     parent_id = Column(BigInteger, nullable=True, comment="父版本ID")
     version_number = Column(BigInteger, default=1, comment="版本号")
@@ -59,10 +59,10 @@ class DigitalHuman(Base):
     deleted_at = Column(DateTime, nullable=True, comment="软删除时间")
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_status", "status"),
+        Index("idx_digital_humans_user_id", "user_id"),
+        Index("idx_digital_humans_status", "status"),
         Index("idx_authorization", "authorization_type", "authorization_status"),
-        Index("idx_usage_count", "usage_count"),
+        Index("idx_digital_humans_idx_usage_count", "usage_count"),
     )
 
 
@@ -107,8 +107,8 @@ class DigitalHumanTask(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_digital_human_id", "digital_human_id"),
-        Index("idx_status", "status", "priority"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_digital_human_tasks_user_id", "user_id"),
+        Index("idx_digital_human_tasks_digital_human_id", "digital_human_id"),
+        Index("idx_digital_human_tasks_status", "status", "priority"),
+        Index("idx_digital_human_tasks_created_at", "created_at"),
     )

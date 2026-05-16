@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_list(
+def get_list(
     status: str = "all",
     category: Optional[str] = None,
     keyword: Optional[str] = None,
@@ -34,7 +34,7 @@ async def get_list(
 
 
 @router.get("/{script_id}")
-async def get_detail(
+def get_detail(
     script_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -48,7 +48,7 @@ async def get_detail(
 
 
 @router.post("")
-async def create(
+def create(
     request: CreateScriptRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -67,7 +67,7 @@ async def create(
 
 
 @router.patch("/{script_id}")
-async def update(
+def update(
     script_id: int,
     request: UpdateScriptRequest,
     db: Session = Depends(get_db),
@@ -88,7 +88,7 @@ async def update(
 
 
 @router.delete("/{script_id}")
-async def delete(
+def delete(
     script_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -99,7 +99,7 @@ async def delete(
 
 
 @router.post("/{script_id}/save-as-template")
-async def save_as_template(
+def save_as_template(
     script_id: int,
     request: SaveAsTemplateRequest,
     db: Session = Depends(get_db),

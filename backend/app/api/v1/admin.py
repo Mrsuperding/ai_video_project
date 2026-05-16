@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 @router.post("/login")
-async def admin_login(
+def admin_login(
     request: AdminLoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -50,7 +50,7 @@ async def admin_login(
 
 
 @router.get("/users")
-async def get_users(
+def get_users(
     keyword: Optional[str] = None,
     membership_type: Optional[str] = None,
     status: Optional[str] = "active",
@@ -110,7 +110,7 @@ async def get_users(
 
 
 @router.get("/users/{user_id}")
-async def get_user_detail(
+def get_user_detail(
     user_id: int,
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_admin_id)
@@ -152,7 +152,7 @@ async def get_user_detail(
 
 
 @router.post("/users/{user_id}/ban")
-async def ban_user(
+def ban_user(
     user_id: int,
     request: BanUserRequest,
     db: Session = Depends(get_db),
@@ -169,7 +169,7 @@ async def ban_user(
     return success_response(message=f"用户已{'封禁' if request.action == 'ban' else '解封'}")
 # 内容审核
 @router.get("/reviews/pending")
-async def get_pending_reviews(
+def get_pending_reviews(
     target_type: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -214,7 +214,7 @@ async def get_pending_reviews(
 
 
 @router.post("/reviews/{review_id}/approve")
-async def approve_review(
+def approve_review(
     review_id: int,
     request: ApproveReviewRequest,
     db: Session = Depends(get_db),
@@ -233,7 +233,7 @@ async def approve_review(
 
 
 @router.post("/reviews/{review_id}/reject")
-async def reject_review(
+def reject_review(
     review_id: int,
     request: RejectReviewRequest,
     db: Session = Depends(get_db),
@@ -254,7 +254,7 @@ async def reject_review(
 
 # 数据统计
 @router.get("/statistics/overview")
-async def get_platform_statistics(
+def get_platform_statistics(
     period: str = "last_7_days",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -305,7 +305,7 @@ async def get_platform_statistics(
 
 # 系统配置
 @router.get("/configs")
-async def get_configs(
+def get_configs(
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_admin_id)
 ):
@@ -328,7 +328,7 @@ async def get_configs(
 
 
 @router.patch("/configs")
-async def update_configs(
+def update_configs(
     request: UpdateConfigsRequest,
     db: Session = Depends(get_db),
     admin_id: int = Depends(get_current_admin_id)

@@ -1,7 +1,7 @@
 """
 视频相关模型
 """
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, JSON, Text, DECIMAL, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, JSON, Text, DECIMAL, Index, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -20,20 +20,20 @@ class VideoProject(Base):
     fps = Column(BigInteger, default=30, comment="帧率")
     max_duration = Column(BigInteger, nullable=True, comment="最大时长(秒)")
 
-    digital_human_id = Column(BigInteger, nullable=False, comment="主数字人ID")
+    digital_human_id = Column(BigInteger, ForeignKey("digital_humans.id", ondelete="RESTRICT"), nullable=False, comment="主数字人ID")
     digital_human_config = Column(JSON, nullable=True, comment="数字人配置")
 
-    script_id = Column(BigInteger, nullable=False, comment="脚本ID")
+    script_id = Column(BigInteger, ForeignKey("scripts.id", ondelete="RESTRICT"), nullable=False, comment="脚本ID")
     script_content = Column(JSON, nullable=True, comment="脚本内容快照")
 
-    voice_id = Column(BigInteger, nullable=True, comment="TTS音色ID")
+    voice_id = Column(BigInteger, ForeignKey("voice_clones.id", ondelete="SET NULL"), nullable=True, comment="TTS音色ID")
     tts_config = Column(JSON, nullable=True, comment="TTS配置")
 
-    background_asset_id = Column(BigInteger, nullable=True, comment="背景素材ID")
+    background_asset_id = Column(BigInteger, ForeignKey("user_assets.id", ondelete="SET NULL"), nullable=True, comment="背景素材ID")
     background_type = Column(Enum("color", "image", "video", "transparent"), default="image", comment="背景类型")
     background_value = Column(String(100), nullable=True, comment="背景值")
 
-    bgm_asset_id = Column(BigInteger, nullable=True, comment="背景音乐素材ID")
+    bgm_asset_id = Column(BigInteger, ForeignKey("user_assets.id", ondelete="SET NULL"), nullable=True, comment="背景音乐素材ID")
     bgm_volume = Column(DECIMAL(3, 2), default=0.30, comment="BGM音量")
 
     timeline_config = Column(JSON, nullable=True, comment="时间线配置")
@@ -59,11 +59,11 @@ class VideoProject(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_digital_human", "digital_human_id"),
-        Index("idx_script", "script_id"),
-        Index("idx_status_time", "generation_status", "created_at"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_video_projects_user_id", "user_id"),
+        Index("idx_video_projects_digital_human_id", "digital_human_id"),
+        Index("idx_video_projects_script_id", "script_id"),
+        Index("idx_video_projects_status_time", "generation_status", "created_at"),
+        Index("idx_video_projects_created_at", "created_at"),
     )
 
 
@@ -72,7 +72,7 @@ class VideoOutput(Base):
     __tablename__ = "video_outputs"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    project_id = Column(BigInteger, nullable=False, unique=True, comment="项目ID")
+    project_id = Column(BigInteger, ForeignKey("video_projects.id", ondelete="CASCADE"), nullable=False, unique=True, comment="项目ID")
 
     video_url = Column(String(500), nullable=False, comment="视频文件URL")
     video_path = Column(String(500), nullable=True, comment="视频存储路径")
@@ -84,17 +84,17 @@ class VideoOutput(Base):
     fps = Column(BigInteger, nullable=True, comment="帧率")
     codec = Column(String(50), nullable=True, comment="编码")
     bitrate = Column(BigInteger, nullable=True, comment="码率")
-    has_audio = Column(Enum("0", "1"), default="1", comment="是否有音频")
+    has_audio = Column(Boolean, default=True, comment="是否有音频")
 
     quality_score = Column(BigInteger, nullable=True, comment="质量评分")
     review_status = Column(Enum("pending", "approved", "rejected", "auto_approved", "auto_rejected"), default="auto_approved", comment="审核状态")
     review_reason = Column(String(255), nullable=True, comment="审核原因")
 
-    watermark_embedded = Column(Enum("0", "1"), default="0", comment="是否嵌入水印")
+    watermark_embedded = Column(Boolean, default=False, comment="是否嵌入水印")
     c2pa_manifest_url = Column(String(500), nullable=True, comment="C2PA清单文件URL")
 
     share_token = Column(String(100), nullable=True, comment="分享Token")
-    share_enabled = Column(Enum("0", "1"), default="0", comment="是否启用分享")
+    share_enabled = Column(Boolean, default=False, comment="是否启用分享")
     share_expire_at = Column(DateTime, nullable=True, comment="分享过期时间")
     share_password = Column(String(50), nullable=True, comment="分享密码")
 
@@ -108,8 +108,8 @@ class VideoOutput(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_review_status", "review_status"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_video_outputs_review_status", "review_status"),
+        Index("idx_video_outputs_created_at", "created_at"),
     )
 
 
@@ -119,7 +119,7 @@ class GenerationTask(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, nullable=False, comment="用户ID")
-    project_id = Column(BigInteger, nullable=False, comment="项目ID")
+    project_id = Column(BigInteger, ForeignKey("video_projects.id", ondelete="CASCADE"), nullable=False, comment="项目ID")
     batch_id = Column(String(100), nullable=True, comment="批次ID")
 
     task_type = Column(Enum("tts", "video_gen", "postprocess", "quality_check", "full_pipeline"), nullable=False, comment="任务类型")
@@ -153,7 +153,7 @@ class GenerationTask(Base):
 
     error_code = Column(String(50), nullable=True, comment="错误代码")
     error_message = Column(Text, nullable=True, comment="错误信息")
-    is_timeout = Column(Enum("0", "1"), default="0", comment="是否超时")
+    is_timeout = Column(Boolean, default=False, comment="是否超时")
 
     logs = Column(JSON, nullable=True, comment="详细日志")
 
@@ -161,11 +161,11 @@ class GenerationTask(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_project_id", "project_id"),
-        Index("idx_status_priority", "status", "priority"),
-        Index("idx_batch_id", "batch_id"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_generation_tasks_user_id", "user_id"),
+        Index("idx_generation_tasks_project_id", "project_id"),
+        Index("idx_generation_tasks_status_priority", "status", "priority"),
+        Index("idx_generation_tasks_batch_id", "batch_id"),
+        Index("idx_generation_tasks_created_at", "created_at"),
     )
 
 
@@ -175,11 +175,11 @@ class TTSAudioFile(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, nullable=False, comment="用户ID")
-    project_id = Column(BigInteger, nullable=True, comment="项目ID")
-    script_id = Column(BigInteger, nullable=True, comment="脚本ID")
-    task_id = Column(BigInteger, nullable=True, comment="生成任务ID")
+    project_id = Column(BigInteger, ForeignKey("video_projects.id", ondelete="CASCADE"), nullable=True, comment="项目ID")
+    script_id = Column(BigInteger, ForeignKey("scripts.id", ondelete="SET NULL"), nullable=True, comment="脚本ID")
+    task_id = Column(BigInteger, ForeignKey("generation_tasks.id", ondelete="SET NULL"), nullable=True, comment="生成任务ID")
 
-    voice_id = Column(BigInteger, nullable=True, comment="音色ID")
+    voice_id = Column(BigInteger, ForeignKey("voice_clones.id", ondelete="SET NULL"), nullable=True, comment="音色ID")
     text_content = Column(Text, nullable=False, comment="文本内容")
     voice_config = Column(JSON, nullable=True, comment="语音配置")
 
@@ -197,7 +197,7 @@ class TTSAudioFile(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_project_id", "project_id"),
-        Index("idx_voice_id", "voice_id"),
+        Index("idx_tts_audio_files_user_id", "user_id"),
+        Index("idx_tts_audio_files_project_id", "project_id"),
+        Index("idx_tts_audio_files_voice_id", "voice_id"),
     )

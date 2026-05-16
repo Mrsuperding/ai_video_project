@@ -24,6 +24,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events"""
+    # Startup
+    await init_redis()
+    yield
+    # Shutdown
+    engine.dispose()
+    if redis_client:
+        await redis_client.close()
+    await manager.disconnect()
+
+
+# 创建 FastAPI 应用
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="AI Digital Human Video Platform API",
+    docs_url="/api/docs" if settings.DEBUG else None,
+    redoc_url="/api/redoc" if settings.DEBUG else None,
+    lifespan=lifespan
+)
+
+
+# 请求日志中间件
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """请求日志中间件"""
@@ -59,6 +84,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+# 异常处理器
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException):
     """应用异常处理器"""
@@ -94,27 +120,6 @@ async def general_exception_handler(request: Request, exc: Exception):
         }
     )
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan events"""
-    # Startup
-    await init_redis()
-    yield
-    # Shutdown
-    engine.dispose()
-    await redis_client.close()
-    await manager.disconnect_all()
-
-
-app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description="AI Digital Human Video Platform API",
-    docs_url="/api/docs" if settings.DEBUG else None,
-    redoc_url="/api/redoc" if settings.DEBUG else None,
-    lifespan=lifespan
-)
 
 # CORS middleware
 app.add_middleware(

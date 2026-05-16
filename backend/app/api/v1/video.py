@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_projects(
+def get_projects(
     status: str = "all",
     category: Optional[str] = None,
     keyword: Optional[str] = None,
@@ -31,7 +31,7 @@ async def get_projects(
 
 
 @router.get("/{project_id}")
-async def get_project_detail(
+def get_project_detail(
     project_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -45,7 +45,7 @@ async def get_project_detail(
 
 
 @router.post("")
-async def create_project(
+def create_project(
     request: CreateVideoProjectRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -60,7 +60,7 @@ async def create_project(
 
 
 @router.post("/{project_id}/generate")
-async def submit_generate(
+def submit_generate(
     project_id: int,
     request: GenerateRequest,
     db: Session = Depends(get_db),
@@ -77,7 +77,7 @@ async def submit_generate(
 
 
 @router.post("/{project_id}/cancel")
-async def cancel_generate(
+def cancel_generate(
     project_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -91,7 +91,7 @@ async def cancel_generate(
 
 
 @router.patch("/{project_id}")
-async def update_project(
+def update_project(
     project_id: int,
     request: UpdateProjectRequest,
     db: Session = Depends(get_db),
@@ -107,7 +107,7 @@ async def update_project(
 
 
 @router.post("/{project_id}/regenerate")
-async def regenerate_project(
+def regenerate_project(
     project_id: int,
     request: RegenerateProjectRequest,
     db: Session = Depends(get_db),
@@ -118,7 +118,7 @@ async def regenerate_project(
 
 
 @router.delete("/{project_id}")
-async def delete_project(
+def delete_project(
     project_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -129,7 +129,7 @@ async def delete_project(
 
 
 @router.post("/batch")
-async def batch_operation(
+def batch_operation(
     request: BatchOperationRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

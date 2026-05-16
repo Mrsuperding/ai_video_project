@@ -11,6 +11,18 @@ interface ApiResponse<T = any> {
   data: T
 }
 
+let isRefreshing = false
+let refreshSubscribers: ((token: string) => void)[] = []
+
+function subscribeTokenRefresh(callback: (token: string) => void) {
+  refreshSubscribers.push(callback)
+}
+
+function onTokenRefreshed(token: string) {
+  refreshSubscribers.forEach(callback => callback(token))
+  refreshSubscribers = []
+}
+
 class Request {
   private instance: AxiosInstance
 
@@ -51,16 +63,62 @@ class Request {
 
         return response.data
       },
-      (error: AxiosError<ApiResponse>) => {
+      async (error: AxiosError<ApiResponse>) => {
+        const originalRequest = error.config as any
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+          if (isRefreshing) {
+            // Wait for token refresh to complete
+            return new Promise((resolve, reject) => {
+              subscribeTokenRefresh((token: string) => {
+                originalRequest.headers.Authorization = `Bearer ${token}`
+                resolve(this.instance(originalRequest))
+              })
+            })
+          }
+
+          originalRequest._retry = true
+          isRefreshing = true
+
+          try {
+            const refreshToken = localStorage.getItem('refresh_token')
+            if (!refreshToken) {
+              throw new Error('No refresh token')
+            }
+
+            const response = await axios.post(`${BASE_URL}/auth/refresh`, {
+              refresh_token: refreshToken
+            })
+
+            const { data } = response.data
+            if (data?.access_token) {
+              localStorage.setItem('token', data.access_token)
+              if (data.refresh_token) {
+                localStorage.setItem('refresh_token', data.refresh_token)
+              }
+              onTokenRefreshed(data.access_token)
+
+              originalRequest.headers.Authorization = `Bearer ${data.access_token}`
+              return this.instance(originalRequest)
+            }
+
+            throw new Error('Invalid refresh response')
+          } catch (refreshError) {
+            // Refresh failed, logout
+            localStorage.removeItem('token')
+            localStorage.removeItem('refresh_token')
+            ElMessage.error('登录已过期，请重新登录')
+            router.push('/auth/login')
+            return Promise.reject(refreshError)
+          } finally {
+            isRefreshing = false
+          }
+        }
+
         if (error.response) {
           const { status, data } = error.response
 
           switch (status) {
-            case 401:
-              ElMessage.error('登录已过期，请重新登录')
-              localStorage.removeItem('token')
-              router.push('/auth/login')
-              break
             case 403:
               ElMessage.error('没有权限访问')
               break

@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_list(
+def get_list(
     status: str = "all",
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -29,7 +29,7 @@ async def get_list(
 
 
 @router.get("/{digital_human_id}")
-async def get_detail(
+def get_detail(
     digital_human_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -43,7 +43,7 @@ async def get_detail(
 
 
 @router.post("")
-async def create(
+def create(
     request: CreateDigitalHumanRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -64,7 +64,7 @@ async def create(
 
 
 @router.patch("/{digital_human_id}")
-async def update(
+def update(
     digital_human_id: int,
     request: UpdateDigitalHumanRequest,
     db: Session = Depends(get_db),
@@ -84,7 +84,7 @@ async def update(
 
 
 @router.post("/{digital_human_id}/regenerate")
-async def regenerate(
+def regenerate(
     digital_human_id: int,
     request: RegenerateRequest,
     db: Session = Depends(get_db),
@@ -100,7 +100,7 @@ async def regenerate(
 
 
 @router.post("/{digital_human_id}/set-default")
-async def set_default(
+def set_default(
     digital_human_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -111,7 +111,7 @@ async def set_default(
 
 
 @router.delete("/{digital_human_id}")
-async def delete(
+def delete(
     digital_human_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -122,7 +122,7 @@ async def delete(
 
 
 @router.get("/tasks/{task_id}")
-async def get_task(
+def get_task(
     task_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -136,7 +136,7 @@ async def get_task(
 
 
 @router.post("/upload/token")
-async def get_upload_token(
+def get_upload_token(
     request: dict,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -148,3 +148,18 @@ async def get_upload_token(
         "expire_seconds": 3600,
         "file_prefix": f"dh_{user_id}_20240115_"
     })
+
+
+@router.post("/check-photos")
+def check_photos(
+    request: dict,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """照片检查 - 检查上传的照片是否符合要求"""
+    photo_urls = request.get("photo_urls", [])
+    if not photo_urls:
+        return error_response(40001, "照片URL列表不能为空")
+
+    results = DigitalHumanService.check_photos(db, user_id, photo_urls)
+    return success_response(results)

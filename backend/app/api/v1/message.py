@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_messages(
+def get_messages(
     is_read: Optional[bool] = None,
     message_type: Optional[str] = None,
     page: int = Query(1, ge=1),
@@ -29,7 +29,7 @@ async def get_messages(
 
 
 @router.get("/unread-count")
-async def get_unread_count(
+def get_unread_count(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -39,7 +39,7 @@ async def get_unread_count(
 
 
 @router.post("/{message_id}/read")
-async def mark_read(
+def mark_read(
     message_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -50,7 +50,7 @@ async def mark_read(
 
 
 @router.post("/read-all")
-async def mark_all_read(
+def mark_all_read(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -60,7 +60,7 @@ async def mark_all_read(
 
 
 @router.delete("/{message_id}")
-async def delete_message(
+def delete_message(
     message_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

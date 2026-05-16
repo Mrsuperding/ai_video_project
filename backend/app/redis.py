@@ -40,3 +40,8 @@ async def close_redis():
 def get_sync_redis() -> sync_redis.Redis:
     """获取同步 Redis 客户端"""
     return sync_redis_client
+
+
+async def get_redis() -> redis.Redis:
+    """获取异步 Redis 客户端"""
+    return redis_client

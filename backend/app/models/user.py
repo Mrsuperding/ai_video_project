@@ -1,7 +1,7 @@
 """
 用户相关模型
 """
-from sqlalchemy import Column, BigInteger, String, Text, DateTime, Enum, JSON, Index
+from sqlalchemy import Column, BigInteger, String, Text, DateTime, Enum, JSON, Index, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -19,7 +19,7 @@ class User(Base):
     bio = Column(Text, nullable=True, comment="个人简介")
     real_name = Column(String(50), nullable=True, comment="真实姓名")
     id_card_number = Column(String(18), nullable=True, comment="身份证号")
-    real_name_verified = Column(Enum("0", "1"), default="0", comment="实名认证状态")
+    real_name_verified = Column(Boolean, default=False, comment="实名认证状态")
 
     membership_type = Column(Enum("free", "basic", "pro", "enterprise"), default="free", comment="会员类型")
     membership_expire_at = Column(DateTime, nullable=True, comment="会员到期时间")
@@ -41,11 +41,11 @@ class User(Base):
     deleted_at = Column(DateTime, nullable=True, comment="软删除时间")
 
     __table_args__ = (
-        Index("idx_phone", "phone"),
-        Index("idx_email", "email"),
-        Index("idx_membership", "membership_type", "membership_expire_at"),
-        Index("idx_status", "status"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_users_phone", "phone"),
+        Index("idx_users_email", "email"),
+        Index("idx_users_membership", "membership_type", "membership_expire_at"),
+        Index("idx_users_status", "status"),
+        Index("idx_users_created_at", "created_at"),
     )
 
 
@@ -63,14 +63,14 @@ class UserLoginHistory(Base):
     location_country = Column(String(50), nullable=True, comment="国家")
     location_province = Column(String(50), nullable=True, comment="省份")
     location_city = Column(String(50), nullable=True, comment="城市")
-    is_abnormal = Column(Enum("0", "1"), default="0", comment="是否异常登录")
+    is_abnormal = Column(Boolean, default=False, comment="是否异常登录")
 
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
+        Index("idx_user_login_histories_user_id", "user_id"),
         Index("idx_ip", "ip_address"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_user_login_histories_created_at", "created_at"),
     )
 
 
@@ -86,13 +86,13 @@ class UserDevice(Base):
     os_version = Column(String(50), nullable=True, comment="系统版本")
     app_version = Column(String(50), nullable=True, comment="App版本")
     last_active_at = Column(DateTime, nullable=True, comment="最后活跃时间")
-    is_active = Column(Enum("0", "1"), default="1", comment="是否活跃")
+    is_active = Column(Boolean, default=True, comment="是否活跃")
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
+        Index("idx_user_devices_user_id", "user_id"),
     )
 
 
@@ -115,5 +115,5 @@ class UserOAuthBinding(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
+        Index("idx_user_oauth_bindings_user_id", "user_id"),
     )

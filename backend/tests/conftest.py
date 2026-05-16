@@ -1,60 +1,112 @@
 """
-Pytest Configuration
+Pytest Configuration and Fixtures
 """
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+import os
+import sys
 
-from app.main import app
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from app.database import Base, get_db
-from app.core.security import create_tokens
+from app.core.security import create_access_token
 
 
-TEST_DATABASE_URL = "sqlite:///./test.db"
+@pytest.fixture(scope="session")
+def db_engine():
+    """Create in-memory database for session"""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False
+    )
 
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
 
+    yield engine
 
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
+    engine.dispose()
 
 
 @pytest.fixture(scope="function")
-def db():
-    Base.metadata.create_all(bind=engine)
-    yield TestingSessionLocal()
-    Base.metadata.drop_all(bind=engine)
+def db(db_engine):
+    """Provide session and clean all tables before each test"""
+    session = sessionmaker(bind=db_engine)()
+
+    with db_engine.connect() as conn:
+        conn.execute(text("PRAGMA foreign_keys = OFF"))
+        conn.commit()
+
+        result = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        tables = [row[0] for row in result]
+
+        for table in tables:
+            conn.execute(text(f"DELETE FROM {table}"))
+
+        conn.execute(text("PRAGMA foreign_keys = ON"))
+        conn.commit()
+
+    yield session
+    session.close()
 
 
 @pytest.fixture(scope="function")
 def client(db):
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
+    """Provide test client with database override"""
+    from app.api import api_router
+
+    test_app = FastAPI()
+    test_app.include_router(api_router)
+
+    def override_get_db():
+        yield db
+
+    test_app.dependency_overrides[get_db] = override_get_db
+    with TestClient(test_app, raise_server_exceptions=False) as c:
         yield c
-    app.dependency_overrides.clear()
 
 
-@pytest.fixture
-def user_token():
-    return create_tokens(user_id=1, is_admin=False)
+@pytest.fixture(scope="function")
+def auth_headers(db) -> dict:
+    """Create a test user and return auth headers"""
+    from app.models.user import User
+    from app.core.security import hash_password
+
+    user = User(
+        phone="13800138000",
+        nickname="test_user",
+        password_hash=hash_password("password123"),
+        status="active"
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token({"sub": str(user.id), "type": "access"})
+    return {"Authorization": f"Bearer {token}"}
 
 
-@pytest.fixture
-def admin_token():
-    return create_tokens(user_id=1, is_admin=True)
+@pytest.fixture(scope="function")
+def admin_headers(db) -> dict:
+    """Create a test admin and return auth headers"""
+    from app.models.admin import Admin
+    from app.core.security import hash_password
 
+    admin = Admin(
+        username="admin",
+        password_hash=hash_password("admin123"),
+        real_name="Admin User",
+        role="admin",
+        status="active"
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
 
-@pytest.fixture
-def auth_headers(user_token):
-    return {"Authorization": f"Bearer {user_token}"}
-
-
-@pytest.fixture
-def admin_headers(admin_token):
-    return {"Authorization": f"Bearer {admin_token}"}
+    token = create_access_token({"sub": str(admin.id), "type": "admin"})
+    return {"Authorization": f"Bearer {token}"}

@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/profile")
-async def get_profile(
+def get_profile(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -31,7 +31,7 @@ async def get_profile(
 
 
 @router.patch("/profile")
-async def update_profile(
+def update_profile(
     request: UpdateProfileRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -53,7 +53,7 @@ async def update_profile(
 
 
 @router.post("/password/change")
-async def change_password(
+def change_password(
     request: ChangePasswordRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -69,7 +69,7 @@ async def change_password(
 
 
 @router.post("/password/reset")
-async def reset_password(
+def reset_password(
     request: ResetPasswordRequest,
     db: Session = Depends(get_db)
 ):
@@ -84,7 +84,7 @@ async def reset_password(
 
 
 @router.post("/phone/bind")
-async def bind_phone(
+def bind_phone(
     request: BindPhoneRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -100,7 +100,7 @@ async def bind_phone(
 
 
 @router.post("/phone/unbind")
-async def unbind_phone(
+def unbind_phone(
     request: UnbindPhoneRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -116,7 +116,7 @@ async def unbind_phone(
 
 
 @router.get("/devices")
-async def get_devices(
+def get_devices(
     status: str = None,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -127,7 +127,7 @@ async def get_devices(
 
 
 @router.delete("/devices/{device_id}")
-async def remove_device(
+def remove_device(
     device_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -138,7 +138,7 @@ async def remove_device(
 
 
 @router.get("/oauth-bindings")
-async def get_oauth_bindings(
+def get_oauth_bindings(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -148,7 +148,7 @@ async def get_oauth_bindings(
 
 
 @router.delete("/oauth-bindings/{provider}")
-async def unbind_oauth(
+def unbind_oauth(
     provider: str,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

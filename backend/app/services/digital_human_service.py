@@ -205,8 +205,8 @@ class DigitalHumanService:
         # 取消其他默认
         db.query(DigitalHuman).filter(
             DigitalHuman.user_id == user_id,
-            DigitalHuman.is_default == "1"
-        ).update({"is_default": "0"})
+            DigitalHuman.is_default == True
+        ).update({"is_default": False})
 
         # 设置新的默认
         dh = db.query(DigitalHuman).filter(
@@ -215,7 +215,7 @@ class DigitalHumanService:
         ).first()
 
         if dh:
-            dh.is_default = "1"
+            dh.is_default = True
             db.commit()
         return True
 
@@ -256,6 +256,21 @@ class DigitalHumanService:
         }
 
     @staticmethod
+    def check_photos(db: Session, user_id: int, photo_urls: List[str]) -> List[Dict[str, Any]]:
+        """检查照片是否符合要求"""
+        results = []
+        for url in photo_urls:
+            # TODO: 调用实际的图片检查服务
+            # 目前返回模拟数据
+            results.append({
+                "url": url,
+                "valid": True,
+                "reason": None,
+                "suggestion": None
+            })
+        return results
+
+    @staticmethod
     def _format_item(db: Session, dh: DigitalHuman) -> Dict[str, Any]:
         """格式化列表项"""
         item = {
@@ -267,7 +282,7 @@ class DigitalHumanService:
             "preview_video_url": dh.preview_video_url,
             "preview_video_duration": float(dh.preview_video_duration) if dh.preview_video_duration else None,
             "usage_count": dh.usage_count,
-            "is_default": dh.is_default == "1",
+            "is_default": dh.is_default == True,
             "authorization_type": dh.authorization_type,
             "authorization_status": dh.authorization_status,
             "created_at": dh.created_at
@@ -302,7 +317,7 @@ class DigitalHumanService:
             "preview_image_url": dh.preview_image_url,
             "preview_video_url": dh.preview_video_url,
             "usage_count": dh.usage_count,
-            "is_default": dh.is_default == "1",
+            "is_default": dh.is_default == True,
             "authorization_type": dh.authorization_type,
             "authorization_status": dh.authorization_status,
             "version_number": dh.version_number,

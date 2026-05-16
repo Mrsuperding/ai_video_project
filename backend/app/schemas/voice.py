@@ -34,3 +34,10 @@ class CreateVoiceCloneResponse(BaseModel):
     status: str
     task_id: int
     estimated_seconds: int = 300
+
+
+class PreviewTTSRequest(BaseModel):
+    """TTS 预览请求"""
+    text: str = Field(..., min_length=1, max_length=500)
+    voice_id: Optional[int] = None
+    config: Optional[dict] = None

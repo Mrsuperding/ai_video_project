@@ -42,11 +42,11 @@ class UserAsset(Base):
     deleted_at = Column(DateTime, nullable=True, comment="软删除时间")
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_type", "asset_type"),
-        Index("idx_category", "category"),
-        Index("idx_status", "status"),
-        Index("idx_created_at", "created_at"),
+        Index("idx_user_assets_user_id", "user_id"),
+        Index("idx_user_assets_asset_type", "asset_type"),
+        Index("idx_user_assets_category", "category"),
+        Index("idx_user_assets_status", "status"),
+        Index("idx_user_assets_created_at", "created_at"),
     )
 
 
@@ -84,11 +84,11 @@ class PlatformAsset(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_type", "asset_type"),
-        Index("idx_category", "category"),
+        Index("idx_platform_assets_asset_type", "asset_type"),
+        Index("idx_platform_assets_category", "category"),
         Index("idx_license", "license_type", "membership_required"),
-        Index("idx_status", "status"),
-        Index("idx_usage_count", "usage_count"),
+        Index("idx_platform_assets_status", "status"),
+        Index("idx_platform_assets_usage_count", "usage_count"),
     )
 
 
@@ -115,7 +115,7 @@ class AssetCategory(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_parent", "parent_id"),
-        Index("idx_level", "level"),
-        Index("idx_status", "status"),
+        Index("idx_asset_categories_parent_id", "parent_id"),
+        Index("idx_asset_categories_level", "level"),
+        Index("idx_asset_categories_status", "status"),
     )

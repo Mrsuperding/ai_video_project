@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/task/{task_id}")
-async def get_generation_task(
+def get_generation_task(
     task_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -29,7 +29,7 @@ async def get_generation_task(
 
 
 @router.get("/tasks")
-async def get_tasks(
+def get_tasks(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

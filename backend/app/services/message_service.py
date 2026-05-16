@@ -51,7 +51,7 @@ class MessageService:
                     "action_text": m.action_text,
                     "related_type": m.related_type,
                     "related_id": m.related_id,
-                    "is_read": m.is_read == "1",
+                    "is_read": m.is_read == True,
                     "created_at": m.created_at
                 }
                 for m in items
@@ -127,18 +127,18 @@ class MessageService:
             db.refresh(settings)
 
         return {
-            "notify_task_complete": settings.notify_task_complete == "1",
-            "notify_task_failed": settings.notify_task_failed == "1",
-            "notify_review_result": settings.notify_review_result == "1",
-            "notify_system": settings.notify_system == "1",
-            "email_enabled": settings.email_enabled == "1",
-            "email_task_complete": settings.email_task_complete == "1",
-            "email_task_failed": settings.email_task_failed == "1",
-            "email_payment": settings.email_payment == "1",
-            "email_security": settings.email_security == "1",
-            "sms_enabled": settings.sms_enabled == "1",
-            "sms_payment": settings.sms_payment == "1",
-            "sms_security": settings.sms_security == "1"
+            "notify_task_complete": settings.notify_task_complete == True,
+            "notify_task_failed": settings.notify_task_failed == True,
+            "notify_review_result": settings.notify_review_result == True,
+            "notify_system": settings.notify_system == True,
+            "email_enabled": settings.email_enabled == True,
+            "email_task_complete": settings.email_task_complete == True,
+            "email_task_failed": settings.email_task_failed == True,
+            "email_payment": settings.email_payment == True,
+            "email_security": settings.email_security == True,
+            "sms_enabled": settings.sms_enabled == True,
+            "sms_payment": settings.sms_payment == True,
+            "sms_security": settings.sms_security == True
         }
 
     @staticmethod

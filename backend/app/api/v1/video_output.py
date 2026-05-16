@@ -14,8 +14,8 @@ from app.models.video import VideoOutput
 router = APIRouter()
 
 
-@router.get("/output/{output_id}")
-async def get_video_output(
+@router.get("/{output_id}")
+def get_video_output(
     output_id: int,
     db: Session = Depends(get_db)
 ):
@@ -23,21 +23,21 @@ async def get_video_output(
     return success_response({"id": output_id})
 
 
-@router.get("/{project_id}/output")
-async def get_project_output(
+@router.get("/{project_id}/outputs")
+def get_project_outputs(
     project_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    """获取项目视频输出"""
+    """获取项目视频输出列表"""
     output = VideoService.get_video_output(db, project_id)
     if not output:
         return error_response(40405, "视频不存在")
     return success_response(output)
 
 
-@router.get("/output/{output_id}/download")
-async def download_video(
+@router.get("/{output_id}/download")
+def download_video(
     output_id: int,
     db: Session = Depends(get_db)
 ):
@@ -45,8 +45,8 @@ async def download_video(
     return success_response({"download_url": "https://cdn.example.com/video/1.mp4"})
 
 
-@router.post("/output/{output_id}/share")
-async def share_video(
+@router.post("/{output_id}/share")
+def share_video(
     output_id: int,
     request: ShareVideoRequest,
     db: Session = Depends(get_db),
@@ -66,12 +66,13 @@ async def share_video(
     return success_response(result)
 
 
-@router.get("/share/{share_token}")
-async def get_shared_video(
+# Public endpoint - no auth required
+@router.get("/shared/{share_token}")
+def get_shared_video(
     share_token: str,
     db: Session = Depends(get_db)
 ):
-    """获取分享视频"""
+    """获取分享视频（公开接口，无需认证）"""
     output = db.query(VideoOutput).filter(VideoOutput.share_token == share_token).first()
     if not output:
         return error_response(40405, "分享不存在或已过期")

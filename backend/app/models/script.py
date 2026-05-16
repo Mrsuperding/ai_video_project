@@ -1,7 +1,7 @@
 """
 脚本相关模型
 """
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, JSON, Text, DECIMAL, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, JSON, Text, DECIMAL, Index, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -21,15 +21,15 @@ class Script(Base):
     estimated_duration = Column(DECIMAL(8, 2), nullable=True, comment="预估时长(秒)")
 
     language = Column(String(10), default="zh", comment="主要语言")
-    voice_id = Column(BigInteger, nullable=True, comment="关联音色ID")
+    voice_id = Column(BigInteger, ForeignKey("voice_clones.id", ondelete="SET NULL"), nullable=True, comment="关联音色ID")
     base_tts_speed = Column(DECIMAL(3, 2), default=1.00, comment="基础语速")
 
     tags = Column(JSON, nullable=True, comment="标签")
     category = Column(String(50), nullable=True, comment="分类")
-    template_id = Column(BigInteger, nullable=True, comment="来源模板ID")
-    is_template = Column(Enum("0", "1"), default="0", comment="是否为模板")
+    template_id = Column(BigInteger, ForeignKey("script_templates.id", ondelete="SET NULL"), nullable=True, comment="来源模板ID")
+    is_template = Column(Boolean, default=False, comment="是否为模板")
 
-    ai_generated = Column(Enum("0", "1"), default="0", comment="是否AI生成")
+    ai_generated = Column(Boolean, default=False, comment="是否AI生成")
     ai_prompt = Column(Text, nullable=True, comment="AI生成时的提示词")
     ai_model = Column(String(50), nullable=True, comment="使用的AI模型")
 
@@ -43,10 +43,10 @@ class Script(Base):
     deleted_at = Column(DateTime, nullable=True, comment="软删除时间")
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_status", "status"),
-        Index("idx_category", "category"),
-        Index("idx_is_template", "is_template"),
+        Index("idx_scripts_user_id", "user_id"),
+        Index("idx_scripts_status", "status"),
+        Index("idx_scripts_category", "category"),
+        Index("idx_scripts_is_template", "is_template"),
     )
 
 
@@ -85,10 +85,10 @@ class ScriptTemplate(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_category", "category"),
-        Index("idx_source", "source"),
-        Index("idx_status", "status"),
-        Index("idx_usage_count", "usage_count"),
+        Index("idx_script_templates_category", "category"),
+        Index("idx_script_templates_source", "source"),
+        Index("idx_script_templates_status", "status"),
+        Index("idx_script_templates_usage_count", "usage_count"),
     )
 
 
@@ -98,7 +98,7 @@ class AIWritingTask(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, nullable=False, comment="用户ID")
-    script_id = Column(BigInteger, nullable=True, comment="关联脚本ID")
+    script_id = Column(BigInteger, ForeignKey("scripts.id", ondelete="CASCADE"), nullable=True, comment="关联脚本ID")
 
     task_type = Column(Enum("generate", "rewrite", "expand", "shrink", "translate", "polish"), nullable=False, comment="任务类型")
 
@@ -106,7 +106,7 @@ class AIWritingTask(Base):
     input_text = Column(Text, nullable=True, comment="输入文本")
     source_language = Column(String(10), nullable=True, comment="源语言")
     target_language = Column(String(10), nullable=True, comment="目标语言")
-    template_id = Column(BigInteger, nullable=True, comment="使用的模板ID")
+    template_id = Column(BigInteger, ForeignKey("script_templates.id", ondelete="SET NULL"), nullable=True, comment="使用的模板ID")
 
     output_text = Column(Text, nullable=True, comment="生成的内容")
     output_segments = Column(JSON, nullable=True, comment="分段后的内容")
@@ -128,7 +128,7 @@ class AIWritingTask(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_script_id", "script_id"),
-        Index("idx_status", "status"),
+        Index("idx_ai_writing_tasks_user_id", "user_id"),
+        Index("idx_ai_writing_tasks_script_id", "script_id"),
+        Index("idx_ai_writing_tasks_status", "status"),
     )

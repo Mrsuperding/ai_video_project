@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_wallet(
+def get_wallet(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -26,7 +26,7 @@ async def get_wallet(
 
 
 @router.get("/transactions")
-async def get_transactions(
+def get_transactions(
     transaction_type: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -43,7 +43,7 @@ async def get_transactions(
 
 
 @router.post("/recharge")
-async def create_recharge(
+def create_recharge(
     request: RechargeRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -59,7 +59,7 @@ async def create_recharge(
 
 
 @router.get("/recharge/{order_no}")
-async def get_recharge_status(
+def get_recharge_status(
     order_no: str,
     db: Session = Depends(get_db)
 ):

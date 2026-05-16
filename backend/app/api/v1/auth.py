@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import datetime
+import asyncio
 
 from app.database import get_db
 from app.dependencies import get_current_user_id
@@ -135,7 +136,7 @@ async def password_login(
 
 
 @router.post("/login/oauth")
-async def oauth_login(
+def oauth_login(
     request: OAuthLoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -145,7 +146,7 @@ async def oauth_login(
 
 
 @router.post("/refresh")
-async def refresh_token(
+def refresh_token(
     request: RefreshTokenRequest,
     db: Session = Depends(get_db)
 ):
@@ -160,7 +161,7 @@ async def refresh_token(
 
 
 @router.post("/logout")
-async def logout(
+def logout(
     user_id: int = Depends(get_current_user_id)
 ):
     """登出"""

@@ -1,7 +1,7 @@
 """
 声音克隆 API
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_list(
+def get_list(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -27,7 +27,7 @@ async def get_list(
 
 
 @router.post("")
-async def create(
+def create(
     request: CreateVoiceCloneRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -41,8 +41,24 @@ async def create(
         return error_response(50001, str(e))
 
 
-@router.post("/{voice_id}/set-default")
-async def set_default(
+@router.post("/preview")
+def preview_tts(
+    request: PreviewTTSRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """TTS 预览 - 使用指定音色预览文本转语音结果"""
+    try:
+        result = VoiceService.preview_tts(db, user_id, request.text, request.voice_id, request.config)
+        return success_response(result)
+    except NotFoundException as e:
+        return error_response(e.code, e.message)
+    except Exception as e:
+        return error_response(50001, str(e))
+
+
+@router.get("/{voice_id}/set-default")
+def set_default(
     voice_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -53,7 +69,7 @@ async def set_default(
 
 
 @router.delete("/{voice_id}")
-async def delete(
+def delete(
     voice_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

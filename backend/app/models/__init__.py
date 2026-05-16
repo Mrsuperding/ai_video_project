@@ -7,9 +7,14 @@ from app.models.voice import VoiceClone
 from app.models.script import Script, ScriptTemplate, AIWritingTask
 from app.models.asset import UserAsset, PlatformAsset, AssetCategory
 from app.models.video import VideoProject, VideoOutput, GenerationTask, TTSAudioFile
-from app.models.message import UserMessage, UserNotificationSettings
+from app.models.message import UserMessage, UserNotificationSettings, ContentReview
 from app.models.statistics import UserStatistics, PlatformStatistics, ModelUsageStatistics
 from app.models.admin import Admin, AdminOperationLog, SystemConfig
+from app.models.extensions import (
+    DigitalHumanPhoto, AuthorizationProof, VoicePreset, TTSCache,
+    ShareAccessLog, PaymentOrder, ConsumptionRecord, MembershipPlan,
+    UserViolation, SensitiveWord
+)
 
 __all__ = [
     "User", "UserLoginHistory", "UserDevice", "UserOAuthBinding",
@@ -20,7 +25,10 @@ __all__ = [
     "Script", "ScriptTemplate", "AIWritingTask",
     "UserAsset", "PlatformAsset", "AssetCategory",
     "VideoProject", "VideoOutput", "GenerationTask", "TTSAudioFile",
-    "UserMessage", "UserNotificationSettings",
+    "UserMessage", "UserNotificationSettings", "ContentReview",
     "UserStatistics", "PlatformStatistics", "ModelUsageStatistics",
-    "Admin", "AdminOperationLog", "SystemConfig"
+    "Admin", "AdminOperationLog", "SystemConfig",
+    "DigitalHumanPhoto", "AuthorizationProof", "VoicePreset", "TTSCache",
+    "ShareAccessLog", "PaymentOrder", "ConsumptionRecord", "MembershipPlan",
+    "UserViolation", "SensitiveWord"
 ]

@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
 
+    @property
+    def REDIS_URL(self) -> str:
+        """Generate Redis URL from components"""
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
     # JWT 配置
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
@@ -44,8 +51,8 @@ class Settings(BaseSettings):
     ALIYUN_CDN_DOMAIN: str = ""
 
     # 短信配置
-    ALIYUN_ACCESS_KEY: str = ""
-    ALIYUN_SECRET_KEY: str = ""
+    ALIYUN_SMS_ACCESS_KEY: str = ""
+    ALIYUN_SMS_SECRET_KEY: str = ""
     ALIYUN_SMS_SIGN_NAME: str = "AI数字人平台"
     ALIYUN_SMS_TEMPLATE_CODE: str = ""
 

@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/plans")
-async def get_membership_plans(db: Session = Depends(get_db)):
+def get_membership_plans(db: Session = Depends(get_db)):
     """获取会员套餐列表"""
     plans = [
         {
@@ -53,7 +53,7 @@ async def get_membership_plans(db: Session = Depends(get_db)):
 
 
 @router.post("/subscribe")
-async def subscribe(
+def subscribe(
     request: SubscribeRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -70,7 +70,7 @@ async def subscribe(
 
 
 @router.get("/orders/{order_no}")
-async def get_membership_order(
+def get_membership_order(
     order_no: str,
     db: Session = Depends(get_db)
 ):
@@ -83,7 +83,7 @@ async def get_membership_order(
 
 
 @router.get("/my")
-async def get_my_membership(
+def get_my_membership(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):

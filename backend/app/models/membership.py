@@ -1,7 +1,7 @@
 """
 会员与优惠券模型
 """
-from sqlalchemy import Column, BigInteger, String, DateTime, Enum, DECIMAL, JSON, Index
+from sqlalchemy import Column, BigInteger, String, DateTime, Enum, DECIMAL, JSON, Index, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -20,9 +20,9 @@ class UserMembership(Base):
 
     start_at = Column(DateTime, nullable=False, comment="开始时间")
     end_at = Column(DateTime, nullable=False, comment="结束时间")
-    auto_renew = Column(Enum("0", "1"), default="0", comment="是否自动续费")
+    auto_renew = Column(Boolean, default=False, comment="是否自动续费")
 
-    coupon_id = Column(BigInteger, nullable=True, comment="使用的优惠券ID")
+    coupon_id = Column(BigInteger, ForeignKey("coupons.id", ondelete="SET NULL"), nullable=True, comment="使用的优惠券ID")
     discount_amount = Column(DECIMAL(10, 2), default=0.00, comment="优惠金额")
 
     status = Column(Enum("pending", "paid", "cancelled", "expired", "refund"), default="pending", comment="订单状态")
@@ -35,10 +35,10 @@ class UserMembership(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_order_no", "order_no"),
-        Index("idx_status_time", "status", "created_at"),
-        Index("idx_end_at", "end_at"),
+        Index("idx_user_memberships_user_id", "user_id"),
+        Index("idx_user_memberships_order_no", "order_no"),
+        Index("idx_user_memberships_status_time", "status", "created_at"),
+        Index("idx_user_memberships_end_at", "end_at"),
     )
 
 
@@ -70,7 +70,7 @@ class Coupon(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_status", "status"),
+        Index("idx_coupons_status", "status"),
     )
 
 
@@ -80,7 +80,7 @@ class UserCoupon(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, nullable=False, comment="用户ID")
-    coupon_id = Column(BigInteger, nullable=False, comment="优惠券ID")
+    coupon_id = Column(BigInteger, ForeignKey("coupons.id", ondelete="CASCADE"), nullable=False, comment="优惠券ID")
     coupon_code = Column(String(50), nullable=False, unique=True, comment="券码")
 
     status = Column(Enum("unused", "used", "expired", "invalid"), default="unused", comment="状态")
@@ -94,7 +94,7 @@ class UserCoupon(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
-        Index("idx_status_time", "status", "valid_to"),
-        Index("idx_coupon_id", "coupon_id"),
+        Index("idx_user_coupons_user_id", "user_id"),
+        Index("idx_user_coupons_status_time", "status", "valid_to"),
+        Index("idx_user_coupons_coupon_id", "coupon_id"),
     )

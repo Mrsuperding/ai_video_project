@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/list")
-async def get_platform_assets(
+def get_platform_assets(
     asset_type: Optional[str] = None,
     category: Optional[str] = None,
     license_type: Optional[str] = None,
@@ -27,7 +27,7 @@ async def get_platform_assets(
 
 
 @router.get("/categories")
-async def get_categories(
+def get_categories(
     asset_type: Optional[str] = None,
     db: Session = Depends(get_db)
 ):

@@ -14,7 +14,7 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_notification_settings(
+def get_notification_settings(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -24,7 +24,7 @@ async def get_notification_settings(
 
 
 @router.patch("")
-async def update_notification_settings(
+def update_notification_settings(
     request: UpdateNotificationSettingsRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

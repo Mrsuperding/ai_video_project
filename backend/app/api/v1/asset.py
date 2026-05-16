@@ -17,7 +17,7 @@ router = APIRouter()
 
 # 用户素材
 @router.get("")
-async def get_user_assets(
+def get_user_assets(
     asset_type: Optional[str] = None,
     category: Optional[str] = None,
     tag: Optional[str] = None,
@@ -35,7 +35,7 @@ async def get_user_assets(
 
 
 @router.post("/token")
-async def get_upload_token(
+def get_upload_token(
     request: UploadTokenRequest,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
@@ -48,7 +48,7 @@ async def get_upload_token(
 
 
 @router.post("/{asset_id}/confirm")
-async def confirm_upload(
+def confirm_upload(
     asset_id: int,
     request: ConfirmUploadRequest,
     db: Session = Depends(get_db),
@@ -64,7 +64,7 @@ async def confirm_upload(
 
 
 @router.patch("/{asset_id}")
-async def update_asset(
+def update_asset(
     asset_id: int,
     request: UpdateAssetRequest,
     db: Session = Depends(get_db),
@@ -80,7 +80,7 @@ async def update_asset(
 
 
 @router.delete("/{asset_id}")
-async def delete_asset(
+def delete_asset(
     asset_id: int,
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)

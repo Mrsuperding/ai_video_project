@@ -39,7 +39,7 @@ class UserWalletTransaction(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_user_id", "user_id"),
+        Index("idx_user_wallets_user_id", "user_id"),
         Index("idx_transaction_no", "transaction_no"),
         Index("idx_type_time", "transaction_type", "created_at"),
     )

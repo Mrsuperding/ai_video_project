@@ -32,8 +32,7 @@ class UserStatistics(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_user_date", "user_id", "stat_date"),
-        Index("idx_stat_date", "stat_date"),
+        Index("idx_user_statistics_stat_date", "stat_date"),
     )
 
 
@@ -70,8 +69,8 @@ class PlatformStatistics(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_date_hour", "stat_date", "stat_hour"),
-        Index("idx_stat_date", "stat_date"),
+        Index("idx_platform_statistics_date_hour", "stat_date", "stat_hour"),
+        Index("idx_platform_statistics_stat_date", "stat_date"),
     )
 
 
@@ -102,6 +101,6 @@ class ModelUsageStatistics(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_date_provider_model", "stat_date", "stat_hour", "model_provider", "model_name", "model_task_type"),
-        Index("idx_stat_date", "stat_date"),
+        Index("idx_model_usage_statistics_date_provider_model", "stat_date", "stat_hour", "model_provider", "model_name", "model_task_type"),
+        Index("idx_model_usage_statistics_stat_date", "stat_date"),
     )
